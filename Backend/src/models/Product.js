@@ -21,9 +21,14 @@ const productSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
-        unitPrice: {
+        purchasePrice: {
             type: Number,
-            required: [true, 'Unit price is required'],
+            required: [true, 'Purchase price is required'],
+            min: [0, 'Price cannot be negative'],
+        },
+        sellingPrice: {
+            type: Number,
+            required: [true, 'Selling price is required'],
             min: [0, 'Price cannot be negative'],
         },
         taxRate: {
@@ -52,6 +57,11 @@ const productSchema = new mongoose.Schema(
         stock: {
             type: Number,
             default: 0,
+            min: 0,
+        },
+        lowStockAlert: {
+            type: Number,
+            default: 10,
             min: 0,
         },
         trackInventory: {

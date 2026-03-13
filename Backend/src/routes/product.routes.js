@@ -16,8 +16,7 @@ router.route('/')
     .post(
         authorize('admin', 'manager'),
         [
-            body('name').notEmpty().withMessage('Product name is required'),
-            body('unitPrice').isFloat({ min: 0 }).withMessage('Valid unit price is required'),
+            body('sellingPrice').isFloat({ min: 0 }).withMessage('Valid selling price is required'),
         ],
         validate,
         createProduct

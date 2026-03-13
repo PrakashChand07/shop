@@ -11,83 +11,95 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus } from "lucide-react";
+import api from "../api/axios";
+import { toast } from "sonner";
 
 interface AddProductDialogProps {
-  onAddProduct?: (product: any) => void;
+  onAddProduct?: () => void;
+  categories: any[];
+  productToEdit?: any; // To support update later
 }
 
-export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
+export function AddProductDialog({ onAddProduct, categories, productToEdit }: AddProductDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    sku: "",
-    barcode: "",
-    category: "",
-    hsnCode: "",
-    purchasePrice: "",
-    sellingPrice: "",
-    gst: "5",
-    stock: "",
-    lowStockAlert: "",
-    unit: "Pair",
+    name: productToEdit?.name || "",
+    sku: productToEdit?.sku || "",
+    category: productToEdit?.category || "",
+    hsnCode: productToEdit?.hsnCode || "",
+    purchasePrice: productToEdit?.purchasePrice || "",
+    sellingPrice: productToEdit?.sellingPrice || "",
+    gst: productToEdit?.taxRate || "18",
+    stock: productToEdit?.stock || "",
+    lowStockAlert: productToEdit?.lowStockAlert || "10",
+    unit: productToEdit?.unit || "pcs",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newProduct = {
-      id: Date.now().toString(),
-      name: formData.name,
-      sku: formData.sku,
-      barcode: formData.barcode,
-      category: formData.category,
-      hsnCode: formData.hsnCode,
-      purchasePrice: parseFloat(formData.purchasePrice),
-      sellingPrice: parseFloat(formData.sellingPrice),
-      gst: parseFloat(formData.gst),
-      stock: parseInt(formData.stock),
-      lowStockAlert: parseInt(formData.lowStockAlert),
-      unit: formData.unit,
-    };
+    try {
+      const payload = {
+        name: formData.name,
+        sku: formData.sku,
+        category: formData.category,
+        hsnCode: formData.hsnCode,
+        purchasePrice: Number(formData.purchasePrice),
+        sellingPrice: Number(formData.sellingPrice),
+        taxRate: Number(formData.gst),
+        stock: Number(formData.stock),
+        lowStockAlert: Number(formData.lowStockAlert),
+        unit: formData.unit,
+      };
 
-    if (onAddProduct) {
-      onAddProduct(newProduct);
+      let res;
+      if (productToEdit) {
+        res = await api.put(`/products/${productToEdit._id}`, payload);
+      } else {
+        res = await api.post('/products', payload);
+      }
+
+      if (res.data.success) {
+        toast.success(productToEdit ? "Product updated successfully" : "Product added successfully");
+        if (onAddProduct) onAddProduct();
+        setOpen(false);
+        if (!productToEdit) {
+            setFormData({
+            name: "",
+            sku: "",
+            category: "",
+            hsnCode: "",
+            purchasePrice: "",
+            sellingPrice: "",
+            gst: "18",
+            stock: "",
+            lowStockAlert: "10",
+            unit: "pcs",
+            });
+        }
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to save product");
     }
-
-    // Show success message
-    alert(`Product "${formData.name}" added successfully!`);
-    
-    // Reset form
-    setFormData({
-      name: "",
-      sku: "",
-      barcode: "",
-      category: "",
-      hsnCode: "",
-      purchasePrice: "",
-      sellingPrice: "",
-      gst: "5",
-      stock: "",
-      lowStockAlert: "",
-      unit: "Pair",
-    });
-    
-    setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Button>
+        {productToEdit ? (
+           <Button size="sm" variant="ghost">Edit</Button>
+        ) : (
+           <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+             <Plus className="h-4 w-4" />
+             Add Product
+           </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>{productToEdit ? "Edit Product" : "Add New Product"}</DialogTitle>
           <DialogDescription>
-            Add a new product to your inventory
+            {productToEdit ? "Update your product details" : "Add a new product to your inventory"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -103,67 +115,36 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
+              <Label htmlFor="category">Category</Label>
               <select
                 id="category"
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                required
               >
                 <option value="">Select Category</option>
-                <option value="Men's Formal Shoes">Men's Formal Shoes</option>
-                <option value="Women's Sandals & Flats">Women's Sandals & Flats</option>
-                <option value="Casual Slippers">Casual Slippers</option>
-                <option value="Sports Shoes">Sports Shoes</option>
-                <option value="Kids Footwear">Kids Footwear</option>
-                <option value="Boots & Heels">Boots & Heels</option>
+                {categories.filter(c => c.isActive).map((cat) => (
+                    <option key={cat._id} value={cat.name}>{cat.name}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU *</Label>
+              <Label htmlFor="sku">SKU</Label>
               <Input
                 id="sku"
                 value={formData.sku}
                 onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                 placeholder="e.g., BTA-MFS-001"
-                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="barcode">Barcode</Label>
-              <Input
-                id="barcode"
-                value={formData.barcode}
-                onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                placeholder="e.g., 8901234567890"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="hsnCode">HSN Code *</Label>
+              <Label htmlFor="hsnCode">HSN Code</Label>
               <Input
                 id="hsnCode"
                 value={formData.hsnCode}
                 onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
                 placeholder="e.g., 6403"
-                required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="gst">GST Rate (%) *</Label>
-              <select
-                id="gst"
-                value={formData.gst}
-                onChange={(e) => setFormData({ ...formData, gst: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                required
-              >
-                <option value="0">0%</option>
-                <option value="5">5%</option>
-                <option value="12">12%</option>
-                <option value="18">18%</option>
-                <option value="28">28%</option>
-              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="purchasePrice">Purchase Price (₹) *</Label>
@@ -192,26 +173,40 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity *</Label>
+              <Label htmlFor="gst">GST Rate (%)</Label>
+              <select
+                id="gst"
+                value={formData.gst}
+                onChange={(e) => setFormData({ ...formData, gst: e.target.value })}
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                required
+              >
+                <option value="0">0%</option>
+                <option value="5">5%</option>
+                <option value="12">12%</option>
+                <option value="18">18%</option>
+                <option value="28">28%</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stock">Stock Quantity</Label>
               <Input
                 id="stock"
                 type="number"
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                 placeholder="e.g., 50"
-                required
                 min="0"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lowStockAlert">Low Stock Alert *</Label>
+              <Label htmlFor="lowStockAlert">Low Stock Alert</Label>
               <Input
                 id="lowStockAlert"
                 type="number"
                 value={formData.lowStockAlert}
                 onChange={(e) => setFormData({ ...formData, lowStockAlert: e.target.value })}
                 placeholder="e.g., 10"
-                required
                 min="0"
               />
             </div>
@@ -223,9 +218,11 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                 className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               >
-                <option value="Pair">Pair</option>
-                <option value="Piece">Piece</option>
-                <option value="Box">Box</option>
+                <option value="pcs">pcs</option>
+                <option value="kg">kg</option>
+                <option value="box">box</option>
+                <option value="set">set</option>
+                <option value="other">other</option>
               </select>
             </div>
           </div>
@@ -234,7 +231,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               Cancel
             </Button>
             <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              Add Product
+              {productToEdit ? "Save Changes" : "Add Product"}
             </Button>
           </div>
         </form>
