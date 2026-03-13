@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Sales } from "./pages/Sales";
 import { Purchase } from "./pages/Purchase";
 import { Inventory } from "./pages/Inventory";
+import { Categories } from "./pages/Categories";
 import { Customers } from "./pages/Customers";
 import { Suppliers } from "./pages/Suppliers";
 import { Accounting } from "./pages/Accounting";
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
       { path: "invoice-preview", Component: InvoicePreview },
       { path: "purchase", Component: Purchase },
       { path: "inventory", Component: Inventory },
+      { path: "categories", Component: Categories },
       { path: "customers", Component: Customers },
       { path: "suppliers", Component: Suppliers },
       { path: "staff", Component: Staff },
@@ -59,8 +61,5 @@ export const router = createBrowserRouter([
       { path: "settings", Component: Settings },
     ],
   },
-  {
-    path: "*",
-    element: <Navigate to="/login" replace />,
-  },
+
 ]);

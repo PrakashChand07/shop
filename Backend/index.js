@@ -10,6 +10,7 @@ const authRoutes = require('./src/routes/auth.routes');
 const companyRoutes = require('./src/routes/company.routes');
 const customerRoutes = require('./src/routes/customer.routes');
 const productRoutes = require('./src/routes/product.routes');
+const categoryRoutes = require('./src/routes/category.routes');
 const invoiceRoutes = require('./src/routes/invoice.routes');
 const paymentRoutes = require('./src/routes/payment.routes');
 const expenseRoutes = require('./src/routes/expense.routes');
@@ -24,7 +25,7 @@ const app = express();
 // ── MIDDLEWARE ───────────────────────────────────────────
 
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -42,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/categories', categoryRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/expenses', expenseRoutes);
