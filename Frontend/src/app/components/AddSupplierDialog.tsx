@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/axios";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -13,69 +15,95 @@ import { Label } from "./ui/label";
 import { Building2 } from "lucide-react";
 
 interface AddSupplierDialogProps {
-  onAddSupplier?: (supplier: any) => void;
+  onAddSupplier?: () => void;
+  supplierToEdit?: any;
 }
 
-export function AddSupplierDialog({ onAddSupplier }: AddSupplierDialogProps) {
+export function AddSupplierDialog({ onAddSupplier, supplierToEdit }: AddSupplierDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    contactPerson: "",
-    phone: "",
-    email: "",
-    address: "",
-    gstNumber: "",
-    category: "",
+    name: supplierToEdit?.name || "",
+    contactPerson: supplierToEdit?.contactPerson || "",
+    phone: supplierToEdit?.phone || "",
+    email: supplierToEdit?.email || "",
+    address: supplierToEdit?.address || "",
+    gstNumber: supplierToEdit?.gstNumber || "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newSupplier = {
-      id: Date.now().toString(),
-      name: formData.name,
-      contactPerson: formData.contactPerson,
-      phone: formData.phone,
-      email: formData.email,
-      address: formData.address,
-      gstNumber: formData.gstNumber,
-      category: formData.category,
-      outstanding: 0,
-      totalPurchases: 0,
-    };
-
-    if (onAddSupplier) {
-      onAddSupplier(newSupplier);
+  useEffect(() => {
+    if (supplierToEdit) {
+      setFormData({
+        name: supplierToEdit.name || "",
+        contactPerson: supplierToEdit.contactPerson || "",
+        phone: supplierToEdit.phone || "",
+        email: supplierToEdit.email || "",
+        address: supplierToEdit.address || "",
+        gstNumber: supplierToEdit.gstNumber || "",
+      });
     }
+  }, [supplierToEdit, open]);
 
-    alert(`Supplier "${formData.name}" added successfully!`);
-    
-    setFormData({
-      name: "",
-      contactPerson: "",
-      phone: "",
-      email: "",
-      address: "",
-      gstNumber: "",
-      category: "",
-    });
-    
-    setOpen(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: formData.name,
+        contactPerson: formData.contactPerson,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+        gstNumber: formData.gstNumber,
+      };
+
+      let res;
+      if (supplierToEdit) {
+        res = await api.put(`/suppliers/${supplierToEdit._id}`, payload);
+      } else {
+        res = await api.post('/suppliers', payload);
+      }
+
+      if (res.data.success) {
+        toast.success(supplierToEdit ? "Supplier updated successfully!" : "Supplier added successfully!");
+        if (onAddSupplier) {
+          onAddSupplier();
+        }
+        
+        if (!supplierToEdit) {
+            setFormData({
+            name: "",
+            contactPerson: "",
+            phone: "",
+            email: "",
+            address: "",
+            gstNumber: "",
+            });
+        }
+        
+        setOpen(false);
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to save supplier");
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
-          <Building2 className="h-4 w-4" />
-          Add Supplier
-        </Button>
+        {supplierToEdit ? (
+          <Button size="sm" variant="ghost">Edit</Button>
+        ) : (
+          <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+            <Building2 className="h-4 w-4" />
+            Add Supplier
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add New Supplier</DialogTitle>
+          <DialogTitle>{supplierToEdit ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
           <DialogDescription>
-            Add a new supplier to your database
+            {supplierToEdit ? "Update supplier details" : "Add a new supplier to your database"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,23 +158,7 @@ export function AddSupplierDialog({ onAddSupplier }: AddSupplierDialogProps) {
                 placeholder="e.g., 27AABCB1234C1Z5"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <select
-                id="category"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                required
-              >
-                <option value="">Select Category</option>
-                <option value="Formal Footwear">Formal Footwear</option>
-                <option value="Casual Footwear">Casual Footwear</option>
-                <option value="Sports Footwear">Sports Footwear</option>
-                <option value="Kids Footwear">Kids Footwear</option>
-                <option value="All Categories">All Categories</option>
-              </select>
-            </div>
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="address">Address *</Label>
               <Input
@@ -163,7 +175,7 @@ export function AddSupplierDialog({ onAddSupplier }: AddSupplierDialogProps) {
               Cancel
             </Button>
             <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              Add Supplier
+              {supplierToEdit ? "Save Changes" : "Add Supplier"}
             </Button>
           </div>
         </form>
