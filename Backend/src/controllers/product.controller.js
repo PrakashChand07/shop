@@ -63,8 +63,13 @@ const getProduct = async (req, res, next) => {
 // @access  Private (Admin/Manager)
 const createProduct = async (req, res, next) => {
     try {
+        const payload = { ...req.body };
+        if (payload.sku === '') {
+            payload.sku = undefined;
+        }
+
         const product = await Product.create({
-            ...req.body,
+            ...payload,
             company: req.companyId,
             createdBy: req.user._id,
         });
@@ -79,9 +84,17 @@ const createProduct = async (req, res, next) => {
 // @access  Private (Admin/Manager)
 const updateProduct = async (req, res, next) => {
     try {
+        const payload = { ...req.body };
+        const updateOperation = { $set: payload };
+        
+        if (payload.sku === '') {
+            delete payload.sku;
+            updateOperation.$unset = { sku: 1 };
+        }
+
         const product = await Product.findOneAndUpdate(
             { _id: req.params.id, company: req.companyId },
-            req.body,
+            updateOperation,
             { new: true, runValidators: true }
         );
         if (!product) {

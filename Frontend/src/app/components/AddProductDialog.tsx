@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,13 @@ import { toast } from "sonner";
 
 interface AddProductDialogProps {
   onAddProduct?: () => void;
-  categories: any[];
+  categories?: any[];
   productToEdit?: any; // To support update later
 }
 
-export function AddProductDialog({ onAddProduct, categories, productToEdit }: AddProductDialogProps) {
+export function AddProductDialog({ onAddProduct, categories: externalCategories, productToEdit }: AddProductDialogProps) {
   const [open, setOpen] = useState(false);
+  const [localCategories, setLocalCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: productToEdit?.name || "",
     sku: productToEdit?.sku || "",
@@ -34,6 +35,27 @@ export function AddProductDialog({ onAddProduct, categories, productToEdit }: Ad
     lowStockAlert: productToEdit?.lowStockAlert || "10",
     unit: productToEdit?.unit || "pcs",
   });
+
+  const fetchCategories = async () => {
+    try {
+      const catRes = await api.get('/categories');
+      if (catRes.data.success) {
+        setLocalCategories(catRes.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+    }
+  };
+
+  // Fetch local categories when dialog opens and external categories are not provided
+  useEffect(() => {
+    if (open && !externalCategories && localCategories.length === 0) {
+      fetchCategories();
+    }
+  }, [open, externalCategories, localCategories.length]);
+
+  // Use external categories if provided, else use local
+  const categoriesToUse = externalCategories || localCategories;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +145,7 @@ export function AddProductDialog({ onAddProduct, categories, productToEdit }: Ad
                 className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               >
                 <option value="">Select Category</option>
-                {categories.filter(c => c.isActive).map((cat) => (
+                {(categoriesToUse || []).filter((c: any) => c?.isActive).map((cat: any) => (
                     <option key={cat._id} value={cat.name}>{cat.name}</option>
                 ))}
               </select>
