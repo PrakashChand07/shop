@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -19,7 +20,7 @@ import {
   FileBarChart,
   ReceiptText,
 } from "lucide-react";
-import { products, customers } from "../lib/mockData";
+import { customers } from "../lib/mockData";
 import {
   Select,
   SelectContent,
@@ -59,15 +60,31 @@ export function Sales() {
   const [includeGST, setIncludeGST] = useState(true);
   const navigate = useNavigate();
 
-  const filteredProducts = products.filter(
+  const [apiProducts, setApiProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await api.get('/products');
+        if (res.data.success) {
+          setApiProducts(res.data.data);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to fetch products");
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const filteredProducts = apiProducts.filter(
     (product) =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.barcode.includes(searchTerm) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const addToCart = (productId: string) => {
-    const product = products.find((p) => p.id === productId);
+    const product = apiProducts.find((p) => p._id === productId);
     if (!product) return;
 
     const existingItem = cartItems.find((item) => item.productId === productId);
@@ -83,13 +100,13 @@ export function Sales() {
     } else {
       const newItem: CartItem = {
         id: Date.now().toString(),
-        productId: product.id,
+        productId: product._id,
         name: product.name,
         quantity: 1,
         price: product.sellingPrice,
-        gst: product.gst,
+        gst: product.taxRate || 18,
         discount: 0,
-        hsnCode: product.hsnCode,
+        hsnCode: product.hsnCode || "",
       };
       setCartItems([...cartItems, newItem]);
     }
@@ -316,22 +333,22 @@ export function Sales() {
                   <div className="max-h-[600px] space-y-2 overflow-y-auto">
                     {filteredProducts.map((product) => (
                       <div
-                        key={product.id}
+                        key={product._id}
                         className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50"
                       >
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{product.name}</p>
                           <p className="text-sm text-gray-500">
-                            SKU: {product.sku} | Stock: {product.stock}
+                            SKU: {product.sku || 'N/A'} | Stock: {product.stock || 0}
                           </p>
                           <p className="mt-1 text-sm font-medium text-blue-600">
-                            ₹{product.sellingPrice} + {product.gst}% GST
+                            ₹{product.sellingPrice} + {product.taxRate || 0}% GST
                           </p>
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => addToCart(product.id)}
-                          disabled={product.stock === 0}
+                          onClick={() => addToCart(product._id)}
+                          disabled={(product.stock || 0) <= 0 && product.trackInventory}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
