@@ -15,6 +15,12 @@ const companySchema = new mongoose.Schema(
             trim: true,
             match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email'],
         },
+        industryType: {
+            type: String,
+            enum: ['pharmacy', 'footwear'],
+            default: 'pharmacy',
+            required: [true, 'Industry type is required'],
+        },
         phone: {
             type: String,
             trim: true,

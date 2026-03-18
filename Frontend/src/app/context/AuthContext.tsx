@@ -6,13 +6,17 @@ interface User {
   name: string;
   email: string;
   role: string;
-  company?: any;
+  company?: {
+    id: string;
+    name: string;
+    industryType: 'pharmacy' | 'footwear';
+  };
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, companyName: string, industryType: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -60,13 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (
     name: string,
     email: string,
-    password: string
+    password: string,
+    companyName: string,
+    industryType: string
   ): Promise<boolean> => {
     try {
-      // The backend expects companyName, companyEmail, adminName, adminEmail, adminPassword
       const response = await api.post('/company/register', {
-        companyName: "Anjum Footwear",
+        companyName,
         companyEmail: email, // Using same email for company
+        industryType,
         adminName: name,
         adminEmail: email,
         adminPassword: password

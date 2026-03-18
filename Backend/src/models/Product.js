@@ -12,6 +12,26 @@ const productSchema = new mongoose.Schema(
             required: [true, 'Product name is required'],
             trim: true,
         },
+        attributes: [
+            {
+                key: { type: String, trim: true },
+                value: { type: String, trim: true },
+            }
+        ],
+        variants: [
+            {
+                size: { type: String, trim: true },
+                color: { type: String, trim: true },
+                stock: { type: Number, default: 0, min: 0 },
+            }
+        ],
+        batches: [
+            {
+                batchNo: { type: String, trim: true },
+                expiryDate: { type: Date },
+                quantity: { type: Number, default: 0, min: 0 },
+            }
+        ],
         sku: {
             type: String,
             trim: true,

@@ -10,8 +10,9 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import api from "../api/axios";
+import { useIndustry } from "../context/IndustryContext";
 import { toast } from "sonner";
 
 interface AddProductDialogProps {
@@ -35,6 +36,39 @@ export function AddProductDialog({ onAddProduct, categories: externalCategories,
     lowStockAlert: productToEdit?.lowStockAlert || "10",
     unit: productToEdit?.unit || "pcs",
   });
+  
+  const { isPharmacy, isFootwear } = useIndustry();
+
+  // Dynamic state
+  const [mg, setMg] = useState(
+    productToEdit?.attributes?.find((a: any) => a.key === 'mg')?.value || ""
+  );
+  const [batches, setBatches] = useState<{batchNo: string, expiryDate: string, quantity: string}[]>(
+    productToEdit?.batches?.length 
+      ? productToEdit.batches.map((b: any) => ({...b, expiryDate: b.expiryDate ? new Date(b.expiryDate).toISOString().split('T')[0] : ''})) 
+      : []
+  );
+  const [variants, setVariants] = useState<{size: string, color: string, stock: string}[]>(
+    productToEdit?.variants || []
+  );
+
+  const addBatch = () => setBatches([...batches, { batchNo: "", expiryDate: "", quantity: "" }]);
+  const removeBatch = (index: number) => setBatches(batches.filter((_, i) => i !== index));
+
+  const addVariant = () => setVariants([...variants, { size: "", color: "", stock: "" }]);
+  const removeVariant = (index: number) => setVariants(variants.filter((_, i) => i !== index));
+
+  const updateBatch = (index: number, field: string, value: string) => {
+    const newBatches = [...batches];
+    (newBatches[index] as any)[field] = value;
+    setBatches(newBatches);
+  };
+
+  const updateVariant = (index: number, field: string, value: string) => {
+    const newVariants = [...variants];
+    (newVariants[index] as any)[field] = value;
+    setVariants(newVariants);
+  };
 
   const fetchCategories = async () => {
     try {
@@ -68,9 +102,16 @@ export function AddProductDialog({ onAddProduct, categories: externalCategories,
         purchasePrice: Number(formData.purchasePrice),
         sellingPrice: Number(formData.sellingPrice),
         taxRate: Number(formData.gst),
-        stock: Number(formData.stock),
+        stock: isFootwear && variants.length > 0 
+            ? variants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0)
+            : isPharmacy && batches.length > 0
+            ? batches.reduce((acc, b) => acc + (Number(b.quantity) || 0), 0)
+            : Number(formData.stock),
         lowStockAlert: Number(formData.lowStockAlert),
         unit: formData.unit,
+        attributes: isPharmacy && mg ? [{ key: 'mg', value: mg }] : [],
+        batches: isPharmacy ? batches.map(b => ({ ...b, quantity: Number(b.quantity) })) : [],
+        variants: isFootwear ? variants.map(v => ({ ...v, stock: Number(v.stock) })) : [],
       };
 
       let res;
@@ -247,8 +288,86 @@ export function AddProductDialog({ onAddProduct, categories: externalCategories,
                 <option value="other">other</option>
               </select>
             </div>
+            {isPharmacy && (
+              <div className="space-y-2">
+                <Label htmlFor="mg">MG (Strength)</Label>
+                <Input
+                  id="mg"
+                  value={mg}
+                  onChange={(e) => setMg(e.target.value)}
+                  placeholder="e.g., 500"
+                />
+              </div>
+            )}
           </div>
-          <div className="flex justify-end gap-2 pt-4">
+          
+          {isPharmacy && (
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <Label className="text-base font-semibold">Batches & Expiry</Label>
+                <Button type="button" size="sm" variant="outline" onClick={addBatch}>
+                  <Plus className="h-4 w-4 mr-2" /> Add Batch
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {batches.map((batch, index) => (
+                  <div key={index} className="flex gap-3 items-end p-3 border rounded-md relative">
+                    <div className="flex-1 space-y-2">
+                      <Label>Batch No</Label>
+                      <Input value={batch.batchNo} onChange={(e) => updateBatch(index, 'batchNo', e.target.value)} placeholder="Batch number" required />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label>Expiry Date</Label>
+                      <Input type="date" value={batch.expiryDate} onChange={(e) => updateBatch(index, 'expiryDate', e.target.value)} required />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label>Quantity</Label>
+                      <Input type="number" min="0" value={batch.quantity} onChange={(e) => updateBatch(index, 'quantity', e.target.value)} placeholder="Qty" required />
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="text-red-500 mb-0.5" onClick={() => removeBatch(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {batches.length === 0 && <p className="text-sm text-gray-500 italic">No batches added. Total stock will be used.</p>}
+              </div>
+            </div>
+          )}
+
+          {isFootwear && (
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <Label className="text-base font-semibold">Product Variants</Label>
+                <Button type="button" size="sm" variant="outline" onClick={addVariant}>
+                  <Plus className="h-4 w-4 mr-2" /> Add Variant
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {variants.map((variant, index) => (
+                  <div key={index} className="flex gap-3 items-end p-3 border rounded-md relative">
+                    <div className="flex-1 space-y-2">
+                      <Label>Size</Label>
+                      <Input value={variant.size} onChange={(e) => updateVariant(index, 'size', e.target.value)} placeholder="e.g. 8" required />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label>Color</Label>
+                      <Input value={variant.color} onChange={(e) => updateVariant(index, 'color', e.target.value)} placeholder="e.g. Black" required />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label>Stock</Label>
+                      <Input type="number" min="0" value={variant.stock} onChange={(e) => updateVariant(index, 'stock', e.target.value)} placeholder="Qty" required />
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="text-red-500 mb-0.5" onClick={() => removeVariant(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {variants.length === 0 && <p className="text-sm text-gray-500 italic">No variants added. Total stock will be used.</p>}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 mt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>

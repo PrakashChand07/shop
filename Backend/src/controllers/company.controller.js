@@ -8,7 +8,7 @@ const cloudinary = require('../config/cloudinary');
 // @access  Public
 const registerCompany = async (req, res, next) => {
     try {
-        const { companyName, companyEmail, phone, adminName, adminEmail, adminPassword } = req.body;
+        const { companyName, companyEmail, industryType, phone, adminName, adminEmail, adminPassword } = req.body;
 
         // Check if company email already exists
         const existingCompany = await Company.findOne({ email: companyEmail.toLowerCase() });
@@ -26,6 +26,7 @@ const registerCompany = async (req, res, next) => {
         const company = await Company.create({
             name: companyName,
             email: companyEmail,
+            industryType: industryType || 'pharmacy',
             phone,
         });
 
@@ -48,6 +49,7 @@ const registerCompany = async (req, res, next) => {
                     _id: company._id,
                     name: company.name,
                     email: company.email,
+                    industryType: company.industryType,
                     plan: company.plan,
                 },
                 user: {

@@ -29,6 +29,7 @@ import { Logo } from "./Logo";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../context/AuthContext";
+import { useIndustry } from "../context/IndustryContext";
 
 const navigation = [
   { name: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -53,6 +54,7 @@ export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const { isPharmacy, isFootwear, industryType } = useIndustry();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -100,11 +102,15 @@ export function MainLayout() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
                 <User className="h-5 w-5 text-blue-600" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name || "Anjum Footwear"}
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {user?.company?.name || "Accounting & Billing"}
                 </p>
-                <p className="text-xs text-gray-500">Owner</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="inline-flex items-center bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize border border-blue-200">
+                     {industryType}
+                  </span>
+                </div>
               </div>
             </div>
             <Button

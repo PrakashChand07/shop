@@ -1,11 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Edit, Eye } from "lucide-react";
 import api from "../api/axios";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -13,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-
 import { CreatePurchaseDialog } from "../components/CreatePurchaseDialog";
 
 export function Purchase() {
@@ -30,6 +36,8 @@ export function Purchase() {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<any[]>([]);
+  const [editPOId, setEditPOId] = useState<string | null>(null);
+  const [viewPO, setViewPO] = useState<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchPurchaseOrders = async () => {
@@ -120,6 +128,49 @@ export function Purchase() {
     setItems(items.filter(item => item.product !== id));
   };
 
+  const handleEditClick = (po: any) => {
+    setEditPOId(po._id);
+    setSupplier(po.supplier?._id || "");
+    setOrderDate(new Date(po.orderDate).toISOString().split("T")[0]);
+    setExpectedDelivery(po.expectedDelivery ? new Date(po.expectedDelivery).toISOString().split("T")[0] : "");
+    setAmount(po.amount?.toString() || "");
+    setNotes(po.notes || "");
+    setItems(po.items ? po.items.map((i: any) => ({
+      product: i.product?._id || i.product,
+      name: i.product?.name || "Unknown Product",
+      quantity: i.quantity,
+      unit: i.unit
+    })) : []);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDeletePO = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this purchase order?")) return;
+    try {
+      const res = await api.delete(`/purchase-orders/${id}`);
+      if (res.data.success) {
+        toast.success("Purchase Order deleted successfully");
+        fetchPurchaseOrders();
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to delete purchase order");
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    try {
+      const res = await api.put(`/purchase-orders/${id}`, { status: newStatus });
+      if (res.data.success) {
+        toast.success(`Status updated to ${newStatus}`);
+        fetchPurchaseOrders();
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to update status");
+    }
+  };
+
   const handleCreatePO = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) {
@@ -137,13 +188,19 @@ export function Purchase() {
         items: items.map(item => ({ product: item.product, quantity: item.quantity, unit: item.unit })),
       };
 
-      const res = await api.post('/purchase-orders', payload);
+      let res;
+      if (editPOId) {
+        res = await api.put(`/purchase-orders/${editPOId}`, payload);
+      } else {
+        res = await api.post('/purchase-orders', payload);
+      }
 
       if (res.data.success) {
-        toast.success(`Purchase Order created successfully!`);
+        toast.success(`Purchase Order ${editPOId ? 'updated' : 'created'} successfully!`);
         fetchPurchaseOrders();
         
         // Reset form
+        setEditPOId(null);
         setSupplier("");
         setOrderDate(new Date().toISOString().split("T")[0]);
         setExpectedDelivery("");
@@ -174,7 +231,7 @@ export function Purchase() {
         {/* Create Purchase Order */}
         <Card>
           <CardHeader>
-            <CardTitle>Create Purchase Order</CardTitle>
+            <CardTitle>{editPOId ? "Edit Purchase Order" : "Create Purchase Order"}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreatePO} className="space-y-4">
@@ -319,7 +376,22 @@ export function Purchase() {
                 />
               </div>
 
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">Create Purchase Order</Button>
+              <div className="flex gap-2">
+                {editPOId && (
+                  <Button type="button" variant="outline" className="w-full" onClick={() => {
+                    setEditPOId(null);
+                    setSupplier("");
+                    setOrderDate(new Date().toISOString().split("T")[0]);
+                    setExpectedDelivery("");
+                    setAmount("");
+                    setNotes("");
+                    setItems([]);
+                  }}>Cancel Edit</Button>
+                )}
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+                  {editPOId ? "Update Purchase Order" : "Create Purchase Order"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -354,12 +426,33 @@ export function Purchase() {
                         ₹{(po.amount || 0).toLocaleString("en-IN")}
                       </p>
                       <div className="flex items-center gap-2 mt-1 justify-end">
-                        <span className={`text-xs px-2 py-1 rounded-full ${po.status === 'completed' ? 'bg-green-100 text-green-700' : po.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {po.status}
-                        </span>
-                        <Button size="sm" variant="outline">
-                          View
-                        </Button>
+                        <select 
+                          className={`text-xs px-2 py-1 rounded-full border outline-none cursor-pointer ${po.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' : po.status === 'paid' ? 'bg-blue-100 text-blue-700 border-blue-200' : po.status === 'cancelled' ? 'bg-red-100 text-red-700 border-red-200' : po.status === 'approved' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}
+                          value={po.status}
+                          onChange={(e) => handleUpdateStatus(po._id, e.target.value)}
+                          disabled={po.status === 'paid'}
+                        >
+                          <option value="pending" disabled={po.status === 'approved' || po.status === 'completed' || po.status === 'paid'}>Pending</option>
+                          <option value="approved" disabled={po.status === 'completed' || po.status === 'paid'}>Approved</option>
+                          <option value="completed" disabled={po.status === 'paid'}>Completed</option>
+                          <option value="paid">Paid</option>
+                          <option value="cancelled" disabled={po.status === 'paid'}>Cancelled</option>
+                        </select>
+                        <div className="flex bg-gray-50 rounded-md border">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => setViewPO(po)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {po.status === 'pending' && (
+                            <>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:bg-orange-50" onClick={() => handleEditClick(po)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => handleDeletePO(po._id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -369,6 +462,81 @@ export function Purchase() {
           </CardContent>
         </Card>
       </div>
+
+      {/* View PO Dialog */}
+      <Dialog open={!!viewPO} onOpenChange={() => setViewPO(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Purchase Order Details - {viewPO?.poNumber}</DialogTitle>
+            <DialogDescription>
+              View complete details for this order. Status: <span className="font-semibold uppercase">{viewPO?.status}</span>
+            </DialogDescription>
+          </DialogHeader>
+          
+          {viewPO && (
+             <div className="space-y-6">
+               <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg border">
+                 <div>
+                   <p className="text-gray-500">Supplier Name</p>
+                   <p className="font-medium text-gray-900">{viewPO.supplier?.name || 'N/A'}</p>
+                 </div>
+                 <div>
+                   <p className="text-gray-500">Order Date</p>
+                   <p className="font-medium text-gray-900">{new Date(viewPO.orderDate).toLocaleDateString("en-IN")}</p>
+                 </div>
+                 <div>
+                   <p className="text-gray-500">Contact</p>
+                   <p className="font-medium text-gray-900">{viewPO.supplier?.phone || '-'} / {viewPO.supplier?.email || '-'}</p>
+                 </div>
+                 <div>
+                   <p className="text-gray-500">Expected Delivery</p>
+                   <p className="font-medium text-gray-900">{viewPO.expectedDelivery ? new Date(viewPO.expectedDelivery).toLocaleDateString("en-IN") : 'Not specified'}</p>
+                 </div>
+                 <div>
+                   <p className="text-gray-500">Total Amount</p>
+                   <p className="font-bold text-gray-900 text-lg">₹{(viewPO.amount || 0).toLocaleString("en-IN")}</p>
+                 </div>
+               </div>
+
+               <div>
+                 <h4 className="font-medium mb-3">Order Items</h4>
+                 <div className="border rounded-lg overflow-hidden">
+                   <table className="w-full text-sm text-left">
+                     <thead className="bg-gray-50 border-b">
+                       <tr>
+                         <th className="px-4 py-2 font-medium text-gray-600">Product</th>
+                         <th className="px-4 py-2 font-medium text-gray-600">SKU</th>
+                         <th className="px-4 py-2 font-medium text-gray-600 text-right">Quantity</th>
+                         <th className="px-4 py-2 font-medium text-gray-600">Unit</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                       {viewPO.items?.map((item: any, idx: number) => (
+                         <tr key={idx} className="bg-white hover:bg-gray-50">
+                           <td className="px-4 py-3">{item.product?.name || 'Unknown Item'}</td>
+                           <td className="px-4 py-3 text-gray-500">{item.product?.sku || '-'}</td>
+                           <td className="px-4 py-3 text-right font-medium">{item.quantity}</td>
+                           <td className="px-4 py-3 text-gray-500">{item.unit || 'pcs'}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+                 {(!viewPO.items || viewPO.items.length === 0) && (
+                   <p className="text-center text-sm text-gray-500 mt-2">No items recorded.</p>
+                 )}
+               </div>
+
+               {viewPO.notes && (
+                 <div>
+                   <h4 className="font-medium mb-2">Notes</h4>
+                   <p className="text-sm bg-gray-50 p-3 rounded-lg border whitespace-pre-wrap">{viewPO.notes}</p>
+                 </div>
+               )}
+             </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

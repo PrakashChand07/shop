@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { AddProductDialog } from "../components/AddProductDialog";
+import { useIndustry } from "../context/IndustryContext";
 import api from "../api/axios";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ export function Inventory() {
   const [categories, setCategories] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const { isPharmacy, isFootwear } = useIndustry();
 
   const fetchData = async () => {
     try {
@@ -162,7 +164,15 @@ export function Inventory() {
                 {filteredProducts.length > 0 ? (
                     filteredProducts.map((product) => (
                     <tr key={product._id} className="border-b border-gray-100">
-                        <td className="py-3 text-sm text-gray-900">{product.name}</td>
+                        <td className="py-3 text-sm text-gray-900">
+                          <div className="font-medium">{product.name}</div>
+                          {isPharmacy && product.attributes?.find((a: any) => a.key === 'mg')?.value && (
+                            <div className="text-xs text-blue-600 mt-0.5">{product.attributes.find((a: any) => a.key === 'mg')?.value} MG</div>
+                          )}
+                          {isFootwear && product.variants?.length > 0 && (
+                            <div className="text-xs text-purple-600 mt-0.5">{product.variants.length} Variants</div>
+                          )}
+                        </td>
                         <td className="py-3 text-sm text-gray-600">{product.sku || "-"}</td>
                         <td className="py-3">
                         <Badge variant="secondary">{product.category || "-"}</Badge>
