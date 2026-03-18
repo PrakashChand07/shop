@@ -19,27 +19,66 @@ import {
 import { UserPlus, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "./ui/separator";
+import api from "../api/axios";
+import { useEffect } from "react";
 
 interface AddStaffDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  staffToEdit?: any;
+  onAddStaff?: () => void;
 }
 
-export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
+export function AddStaffDialog({ open, onOpenChange, staffToEdit, onAddStaff }: AddStaffDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
+    aadhaarNumber: "",
     designation: "",
     department: "",
     joiningDate: "",
     basicSalary: "",
     allowances: "",
     deductions: "",
-    bankAccount: "",
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+    ifscCode: "",
     panNumber: "",
     address: "",
   });
+
+  useEffect(() => {
+    if (open) {
+      if (staffToEdit) {
+        setFormData({
+          name: staffToEdit.name || "",
+          phone: staffToEdit.phone || "",
+          email: staffToEdit.email || "",
+          aadhaarNumber: staffToEdit.aadhaarNumber || "",
+          designation: staffToEdit.designation || "",
+          department: staffToEdit.department || "",
+          joiningDate: staffToEdit.joiningDate ? new Date(staffToEdit.joiningDate).toISOString().split('T')[0] : "",
+          basicSalary: staffToEdit.basicSalary?.toString() || "",
+          allowances: staffToEdit.allowances?.toString() || "",
+          deductions: staffToEdit.deductions?.toString() || "",
+          bankName: staffToEdit.bankDetails?.bankName || "",
+          accountName: staffToEdit.bankDetails?.accountName || "",
+          accountNumber: staffToEdit.bankDetails?.accountNumber || "",
+          ifscCode: staffToEdit.bankDetails?.ifscCode || "",
+          panNumber: staffToEdit.panNumber || "",
+          address: staffToEdit.address || "",
+        });
+      } else {
+        setFormData({
+          name: "", phone: "", email: "", aadhaarNumber: "", designation: "", department: "",
+          joiningDate: "", basicSalary: "", allowances: "", deductions: "",
+          bankName: "", accountName: "", accountNumber: "", ifscCode: "", panNumber: "", address: "",
+        });
+      }
+    }
+  }, [open, staffToEdit]);
 
   const calculateNetSalary = () => {
     const basic = parseFloat(formData.basicSalary) || 0;
@@ -48,35 +87,48 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
     return basic + allowances - deductions;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validation
     if (!formData.name || !formData.phone || !formData.designation || !formData.basicSalary) {
       toast.error("Please fill all required fields");
       return;
     }
 
-    // Generate employee ID
-    const employeeId = `EMP${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`;
+    try {
+        const payload = {
+            name: formData.name,
+            phone: formData.phone,
+            email: formData.email,
+            aadhaarNumber: formData.aadhaarNumber,
+            designation: formData.designation,
+            department: formData.department,
+            joiningDate: formData.joiningDate || new Date(),
+            basicSalary: Number(formData.basicSalary),
+            allowances: Number(formData.allowances) || 0,
+            deductions: Number(formData.deductions) || 0,
+            bankDetails: {
+                bankName: formData.bankName,
+                accountName: formData.accountName,
+                accountNumber: formData.accountNumber,
+                ifscCode: formData.ifscCode,
+            },
+            panNumber: formData.panNumber,
+            address: formData.address,
+        };
 
-    toast.success(`Staff added successfully! Employee ID: ${employeeId}`);
-    
-    // Reset form
-    setFormData({
-      name: "",
-      phone: "",
-      email: "",
-      designation: "",
-      department: "",
-      joiningDate: "",
-      basicSalary: "",
-      allowances: "",
-      deductions: "",
-      bankAccount: "",
-      panNumber: "",
-      address: "",
-    });
-
-    onOpenChange(false);
+        if (staffToEdit) {
+            await api.put(`/staff/${staffToEdit._id}`, payload);
+            toast.success("Staff updated successfully!");
+        } else {
+            const res = await api.post("/staff", payload);
+            toast.success(`Staff added successfully! Employee ID: ${res.data.data.employeeId}`);
+        }
+        
+        if (onAddStaff) onAddStaff();
+        onOpenChange(false);
+    } catch (error: any) {
+        toast.error(error.response?.data?.message || "Failed to save staff record");
+    }
   };
 
   const departments = [
@@ -87,18 +139,19 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
     "Logistics",
     "IT",
     "Marketing",
+    "General",
   ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="min-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-blue-600" />
-            Add New Staff Member
+            {staffToEdit ? "Edit Staff Member" : "Add New Staff Member"}
           </DialogTitle>
           <DialogDescription>
-            Enter employee details to add a new staff member
+            {staffToEdit ? "Update employee details" : "Enter employee details to add a new staff member"}
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +159,7 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
           {/* Personal Information */}
           <div className="space-y-3">
             <h3 className="font-semibold text-sm text-gray-700">Personal Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name *</Label>
                 <Input
@@ -132,10 +185,7 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
                   required
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -147,6 +197,10 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
                   placeholder="employee@anjumfootwear.com"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+             
               <div className="space-y-2">
                 <Label htmlFor="panNumber">PAN Number</Label>
                 <Input
@@ -157,6 +211,17 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
                   }
                   placeholder="ABCPS1234D"
                   className="font-mono"
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="aadhaarNumber">Aadhaar Card Number</Label>
+                <Input
+                  id="aadhaarNumber"
+                  value={formData.aadhaarNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, aadhaarNumber: e.target.value })
+                  }
+                  placeholder="1234 5678 9012"
                 />
               </div>
             </div>
@@ -227,16 +292,48 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="bankAccount">Bank Account</Label>
-                <Input
-                  id="bankAccount"
-                  value={formData.bankAccount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bankAccount: e.target.value })
-                  }
-                  placeholder="HDFC Bank - 1234567890"
-                />
+            </div>
+            <div className="pt-2">
+              <h4 className="font-medium text-xs text-gray-500 mb-3 uppercase tracking-wider">Bank Details</h4>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Input
+                    id="bankName"
+                    value={formData.bankName}
+                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    placeholder="e.g. HDFC Bank"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accountName">Account Holder Name</Label>
+                  <Input
+                    id="accountName"
+                    value={formData.accountName}
+                    onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
+                    placeholder="e.g. John Doe"
+                  />
+                </div>
+              </div>
+               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <Input
+                    id="accountNumber"
+                    value={formData.accountNumber}
+                    onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                    placeholder="e.g. 50100200300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ifscCode">IFSC Code</Label>
+                  <Input
+                    id="ifscCode"
+                    value={formData.ifscCode}
+                    onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
+                    placeholder="e.g. HDFC0001234"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -310,7 +407,7 @@ export function AddStaffDialog({ open, onOpenChange }: AddStaffDialogProps) {
             </Button>
             <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleSubmit}>
               <UserPlus className="h-4 w-4 mr-2" />
-              Add Staff
+              {staffToEdit ? "Save Changes" : "Add Staff"}
             </Button>
           </div>
         </div>

@@ -16,7 +16,10 @@ import {
   Filter,
   Download,
 } from "lucide-react";
-import { staff, salaryPayments } from "../lib/mockData";
+import { salaryPayments } from "../lib/mockData";
+import { useEffect } from "react";
+import api from "../api/axios";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -38,12 +41,48 @@ import { PaySalaryDialog } from "../components/PaySalaryDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 
 export function Staff() {
+  const [staff, setStaff] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
-  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPaySalaryDialog, setShowPaySalaryDialog] = useState(false);
+  const [staffToEdit, setStaffToEdit] = useState<any>(null);
+
+  const fetchStaff = async () => {
+    try {
+      const res = await api.get("/staff");
+      setStaff(res.data.data);
+    } catch (error) {
+      toast.error("Failed to load staff list");
+    }
+  };
+
+  useEffect(() => {
+    fetchStaff();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to delete this staff member?")) {
+      try {
+        await api.delete(`/staff/${id}`);
+        toast.success("Staff deleted successfully");
+        fetchStaff();
+      } catch (error) {
+        toast.error("Failed to delete staff");
+      }
+    }
+  };
+
+  const handleToggleStatus = async (id: string) => {
+    try {
+      await api.patch(`/staff/${id}/toggle-status`);
+      toast.success("Staff status updated");
+      fetchStaff();
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
+  };
 
   const filteredStaff = staff.filter((employee) => {
     const matchesSearch =
@@ -55,7 +94,7 @@ export function Staff() {
       departmentFilter === "all" || employee.department === departmentFilter;
 
     const matchesStatus =
-      statusFilter === "all" || employee.status === statusFilter;
+      statusFilter === "all" || (statusFilter === "active" ? employee.isActive : !employee.isActive);
 
     return matchesSearch && matchesDepartment && matchesStatus;
   });
@@ -77,14 +116,14 @@ export function Staff() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    return status === "active" ? (
-      <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+  const getStatusBadge = (isActive: boolean) => {
+    return isActive ? (
+      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 cursor-pointer" title="Click to disable">
         <UserCheck className="h-3 w-3 mr-1" />
         Active
       </Badge>
     ) : (
-      <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">
+      <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 cursor-pointer" title="Click to enable">
         <UserX className="h-3 w-3 mr-1" />
         Inactive
       </Badge>
@@ -117,10 +156,10 @@ export function Staff() {
   };
 
   // Calculate statistics
-  const activeStaff = staff.filter((e) => e.status === "active").length;
+  const activeStaff = staff.filter((e) => e.isActive).length;
   const totalMonthlySalary = staff
-    .filter((e) => e.status === "active")
-    .reduce((sum, employee) => sum + employee.netSalary, 0);
+    .filter((e) => e.isActive)
+    .reduce((sum, employee) => sum + (employee.netSalary || 0), 0);
   const pendingPayments = salaryPayments.filter((p) => p.status === "pending").length;
   const departments = Array.from(new Set(staff.map((s) => s.department)));
 
@@ -137,7 +176,10 @@ export function Staff() {
         <div className="flex gap-2">
           <Button
             className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => setShowAddDialog(true)}
+            onClick={() => {
+              setStaffToEdit(null);
+              setShowAddDialog(true);
+            }}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Staff
@@ -287,7 +329,7 @@ export function Staff() {
                       </TableRow>
                     ) : (
                       filteredStaff.map((employee) => (
-                        <TableRow key={employee.id}>
+                        <TableRow key={employee._id}>
                           <TableCell className="font-mono font-semibold">
                             {employee.employeeId}
                           </TableCell>
@@ -307,16 +349,20 @@ export function Staff() {
                           <TableCell className="text-right font-semibold">
                             {formatCurrency(employee.netSalary)}
                           </TableCell>
-                          <TableCell>{getStatusBadge(employee.status)}</TableCell>
+                          <TableCell>
+                            <div onClick={() => handleToggleStatus(employee._id)}>
+                              {getStatusBadge(employee.isActive)}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-4 w-4" />
+                              <Button variant="ghost" size="sm" onClick={() => {
+                                setStaffToEdit(employee);
+                                setShowAddDialog(true);
+                              }}>
+                                <Edit className="h-4 w-4 text-blue-600" />
                               </Button>
-                              <Button variant="ghost" size="sm">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(employee._id)}>
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
                             </div>
@@ -404,7 +450,12 @@ export function Staff() {
       </Tabs>
 
       {/* Dialogs */}
-      <AddStaffDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <AddStaffDialog 
+        open={showAddDialog} 
+        onOpenChange={setShowAddDialog} 
+        staffToEdit={staffToEdit}
+        onAddStaff={fetchStaff}
+      />
       <PaySalaryDialog
         open={showPaySalaryDialog}
         onOpenChange={setShowPaySalaryDialog}
