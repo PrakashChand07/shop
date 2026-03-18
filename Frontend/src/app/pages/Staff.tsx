@@ -112,7 +112,8 @@ export function Staff() {
     const matchesSearch =
       employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.designation.toLowerCase().includes(searchTerm.toLowerCase());
+      employee.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.email && employee.email.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesDepartment =
       departmentFilter === "all" || employee.department === departmentFilter;
