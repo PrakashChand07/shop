@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -16,8 +15,7 @@ import {
   Filter,
   Download,
 } from "lucide-react";
-import { salaryPayments } from "../lib/mockData";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { toast } from "sonner";
 import {
@@ -42,9 +40,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 
 export function Staff() {
   const [staff, setStaff] = useState<any[]>([]);
+  const [salaryPayments, setSalaryPayments] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
+  const [salaryMonthFilter, setSalaryMonthFilter] = useState("all");
+  const [salaryYearFilter, setSalaryYearFilter] = useState(new Date().getFullYear().toString());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPaySalaryDialog, setShowPaySalaryDialog] = useState(false);
   const [staffToEdit, setStaffToEdit] = useState<any>(null);
@@ -58,8 +59,24 @@ export function Staff() {
     }
   };
 
+  const fetchSalaryPayments = async () => {
+    try {
+      const res = await api.get("/salary");
+      setSalaryPayments(res.data.data);
+    } catch (error) {
+      toast.error("Failed to load salary payments");
+    }
+  };
+
+  const filteredSalaryPayments = salaryPayments.filter((payment) => {
+    const matchesMonth = salaryMonthFilter === "all" || payment.month === salaryMonthFilter;
+    const matchesYear = salaryYearFilter === "all" || payment.year.toString() === salaryYearFilter;
+    return matchesMonth && matchesYear;
+  });
+
   useEffect(() => {
     fetchStaff();
+    fetchSalaryPayments();
   }, []);
 
   const handleDelete = async (id: string) => {
@@ -381,12 +398,49 @@ export function Staff() {
         <TabsContent value="payments" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <CardTitle>Salary Payment History</CardTitle>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Select value={salaryMonthFilter} onValueChange={setSalaryMonthFilter}>
+                    <SelectTrigger className="w-[130px]">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Months</SelectItem>
+                      <SelectItem value="January">January</SelectItem>
+                      <SelectItem value="February">February</SelectItem>
+                      <SelectItem value="March">March</SelectItem>
+                      <SelectItem value="April">April</SelectItem>
+                      <SelectItem value="May">May</SelectItem>
+                      <SelectItem value="June">June</SelectItem>
+                      <SelectItem value="July">July</SelectItem>
+                      <SelectItem value="August">August</SelectItem>
+                      <SelectItem value="September">September</SelectItem>
+                      <SelectItem value="October">October</SelectItem>
+                      <SelectItem value="November">November</SelectItem>
+                      <SelectItem value="December">December</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={salaryYearFilter} onValueChange={setSalaryYearFilter}>
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Years</SelectItem>
+                      <SelectItem value="2024">2024</SelectItem>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                      <SelectItem value="2027">2027</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -407,8 +461,15 @@ export function Staff() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salaryPayments.map((payment) => (
-                      <TableRow key={payment.id}>
+                    {filteredSalaryPayments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                          No salary payments found for selected criteria.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredSalaryPayments.map((payment) => (
+                        <TableRow key={payment._id}>
                         <TableCell className="font-mono">
                           {payment.employeeId}
                         </TableCell>
@@ -422,10 +483,10 @@ export function Staff() {
                           {formatCurrency(payment.basicSalary)}
                         </TableCell>
                         <TableCell className="text-right text-green-600">
-                          +{formatCurrency(payment.allowances)}
+                          +{formatCurrency(payment.allowances || 0)}
                         </TableCell>
                         <TableCell className="text-right text-red-600">
-                          -{formatCurrency(payment.deductions)}
+                          -{formatCurrency(payment.deductions || 0)}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(payment.netSalary)}
@@ -437,10 +498,16 @@ export function Staff() {
                           <Badge variant="outline" className="capitalize">
                             {payment.paymentMode.replace("_", " ")}
                           </Badge>
+                          {payment.transactionId && (
+                            <div className="text-[10px] text-gray-500 mt-1">
+                              Txn: {payment.transactionId}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
                       </TableRow>
-                    ))}
+                    ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -459,6 +526,9 @@ export function Staff() {
       <PaySalaryDialog
         open={showPaySalaryDialog}
         onOpenChange={setShowPaySalaryDialog}
+        staffList={staff}
+        salaryPayments={salaryPayments}
+        onPaymentProcessed={fetchSalaryPayments}
       />
     </div>
   );

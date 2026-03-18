@@ -19,6 +19,7 @@ const expenseRoutes = require('./src/routes/expense.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const superadminRoutes = require('./src/routes/superadmin.routes');
 const staffRoutes = require('./src/routes/staff.routes');
+const salaryRoutes = require('./src/routes/salary.routes');
 
 // Connect to MongoDB
 connectDB();
@@ -55,6 +56,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/superadmin', superadminRoutes); // Postman only
 app.use('/api/staff', staffRoutes);
+app.use('/api/salary', salaryRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

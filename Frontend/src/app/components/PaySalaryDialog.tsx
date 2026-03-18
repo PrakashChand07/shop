@@ -18,37 +18,60 @@ import {
 import { IndianRupee, Calendar, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "./ui/separator";
-import { staff } from "../lib/mockData";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import api from "../api/axios";
 
 interface PaySalaryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  staffList: any[];
+  salaryPayments: any[];
+  onPaymentProcessed?: () => void;
 }
 
-export function PaySalaryDialog({ open, onOpenChange }: PaySalaryDialogProps) {
+export function PaySalaryDialog({ open, onOpenChange, staffList, salaryPayments, onPaymentProcessed }: PaySalaryDialogProps) {
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [month, setMonth] = useState("");
-  const [year, setYear] = useState("2026");
+  const [year, setYear] = useState(new Date().getFullYear().toString());
   const [paymentMode, setPaymentMode] = useState("bank_transfer");
+  const [transactionId, setTransactionId] = useState("");
 
-  const selectedEmployee = staff.find((s) => s.id === selectedStaffId);
+  const selectedEmployee = staffList.find((s) => s._id === selectedStaffId);
 
-  const handlePaySalary = () => {
+  const existingPayment = salaryPayments.find(
+    (p) => p.staff === selectedStaffId && p.month === month && p.year.toString() === year && p.status === 'paid'
+  );
+
+  const handlePaySalary = async () => {
     if (!selectedStaffId || !month) {
       toast.error("Please select employee and month");
       return;
     }
 
-    toast.success(
-      `Salary payment of ₹${selectedEmployee?.netSalary.toLocaleString("en-IN")} processed successfully for ${selectedEmployee?.name}`
-    );
+    try {
+      await api.post("/salary", {
+        staffId: selectedStaffId,
+        month,
+        year: Number(year),
+        paymentMode,
+        transactionId
+      });
 
-    // Reset form
-    setSelectedStaffId("");
-    setMonth("");
-    onOpenChange(false);
+      toast.success(
+        `Salary payment of ₹${selectedEmployee?.netSalary.toLocaleString("en-IN")} processed successfully for ${selectedEmployee?.name}`
+      );
+
+      // Reset form
+      setSelectedStaffId("");
+      setMonth("");
+      setTransactionId("");
+      if (onPaymentProcessed) onPaymentProcessed();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to process salary payment");
+    }
   };
 
   const months = [
@@ -96,10 +119,10 @@ export function PaySalaryDialog({ open, onOpenChange }: PaySalaryDialogProps) {
                 <SelectValue placeholder="Choose employee..." />
               </SelectTrigger>
               <SelectContent>
-                {staff
-                  .filter((s) => s.status === "active")
+                {staffList
+                  .filter((s) => s.isActive)
                   .map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
+                    <SelectItem key={employee._id} value={employee._id}>
                       {employee.employeeId} - {employee.name} ({employee.designation})
                     </SelectItem>
                   ))}
@@ -140,19 +163,30 @@ export function PaySalaryDialog({ open, onOpenChange }: PaySalaryDialogProps) {
             </div>
           </div>
 
-          {/* Payment Mode */}
-          <div className="space-y-2">
-            <Label>Payment Mode *</Label>
-            <Select value={paymentMode} onValueChange={setPaymentMode}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="cheque">Cheque</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Payment Mode & Transaction ID */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Payment Mode *</Label>
+              <Select value={paymentMode} onValueChange={setPaymentMode}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Transaction ID</Label>
+              <Input
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+                placeholder="e.g. TXN123456789"
+              />
+            </div>
           </div>
 
           <Separator />
@@ -207,15 +241,25 @@ export function PaySalaryDialog({ open, onOpenChange }: PaySalaryDialogProps) {
                       </div>
                     </div>
 
-                    {selectedEmployee.bankAccount && (
+                    {selectedEmployee.bankDetails?.accountNumber && (
                       <div className="pt-2 border-t border-blue-200 mt-2">
-                        <p className="text-xs text-gray-600">Bank Account:</p>
-                        <p className="text-sm font-medium">{selectedEmployee.bankAccount}</p>
+                        <p className="text-xs text-gray-600 mb-1">Bank Account details:</p>
+                        <ul className="text-sm font-medium space-y-0.5">
+                          <li>{selectedEmployee.bankDetails.bankName}</li>
+                          <li>A/C No: {selectedEmployee.bankDetails.accountNumber}</li>
+                          <li>IFSC: {selectedEmployee.bankDetails.ifscCode}</li>
+                        </ul>
                       </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {existingPayment && (
+            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md border border-red-200">
+              Salary for {month} {year} is already paid to {selectedEmployee?.name}. Transaction ID: {existingPayment.transactionId || 'N/A'}.
             </div>
           )}
 
@@ -231,7 +275,7 @@ export function PaySalaryDialog({ open, onOpenChange }: PaySalaryDialogProps) {
             <Button
               className="flex-1 bg-green-600 hover:bg-green-700"
               onClick={handlePaySalary}
-              disabled={!selectedStaffId || !month}
+              disabled={!selectedStaffId || !month || !!existingPayment}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Process Payment
