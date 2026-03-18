@@ -63,11 +63,14 @@ const processSalary = async (req, res, next) => {
 // @access  Private
 const getSalaries = async (req, res, next) => {
     try {
-        const { month, year } = req.query;
+        const { month, year, employeeId } = req.query;
         let query = { company: req.companyId };
 
-        if (month) query.month = month;
-        if (year) query.year = Number(year);
+        if (month && month !== 'all') query.month = month;
+        if (year && year !== 'all') query.year = Number(year);
+        if (employeeId && employeeId.trim() !== '') {
+            query.employeeId = { $regex: employeeId, $options: 'i' };
+        }
 
         const payments = await SalaryPayment.find(query).sort({ paymentDate: -1, createdAt: -1 });
 

@@ -46,6 +46,7 @@ export function Staff() {
   const [statusFilter, setStatusFilter] = useState("active");
   const [salaryMonthFilter, setSalaryMonthFilter] = useState("all");
   const [salaryYearFilter, setSalaryYearFilter] = useState(new Date().getFullYear().toString());
+  const [salaryEmployeeIdFilter, setSalaryEmployeeIdFilter] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPaySalaryDialog, setShowPaySalaryDialog] = useState(false);
   const [staffToEdit, setStaffToEdit] = useState<any>(null);
@@ -61,23 +62,29 @@ export function Staff() {
 
   const fetchSalaryPayments = async () => {
     try {
-      const res = await api.get("/salary");
+      const params = new URLSearchParams();
+      if (salaryMonthFilter && salaryMonthFilter !== 'all') params.append('month', salaryMonthFilter);
+      if (salaryYearFilter && salaryYearFilter !== 'all') params.append('year', salaryYearFilter);
+      if (salaryEmployeeIdFilter) params.append('employeeId', salaryEmployeeIdFilter);
+
+      const res = await api.get(`/salary?${params.toString()}`);
       setSalaryPayments(res.data.data);
     } catch (error) {
       toast.error("Failed to load salary payments");
     }
   };
 
-  const filteredSalaryPayments = salaryPayments.filter((payment) => {
-    const matchesMonth = salaryMonthFilter === "all" || payment.month === salaryMonthFilter;
-    const matchesYear = salaryYearFilter === "all" || payment.year.toString() === salaryYearFilter;
-    return matchesMonth && matchesYear;
-  });
-
   useEffect(() => {
     fetchStaff();
-    fetchSalaryPayments();
   }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchSalaryPayments();
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [salaryMonthFilter, salaryYearFilter, salaryEmployeeIdFilter]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this staff member?")) {
@@ -400,7 +407,16 @@ export function Staff() {
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <CardTitle>Salary Payment History</CardTitle>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      placeholder="Emp ID..."
+                      value={salaryEmployeeIdFilter}
+                      onChange={(e) => setSalaryEmployeeIdFilter(e.target.value)}
+                      className="pl-8 w-[120px]"
+                    />
+                  </div>
                   <Select value={salaryMonthFilter} onValueChange={setSalaryMonthFilter}>
                     <SelectTrigger className="w-[130px]">
                       <Calendar className="h-4 w-4 mr-2" />
@@ -461,14 +477,14 @@ export function Staff() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSalaryPayments.length === 0 ? (
+                    {salaryPayments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                           No salary payments found for selected criteria.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredSalaryPayments.map((payment) => (
+                      salaryPayments.map((payment) => (
                         <TableRow key={payment._id}>
                         <TableCell className="font-mono">
                           {payment.employeeId}
