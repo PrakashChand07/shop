@@ -38,6 +38,7 @@ import { EWayBillDialog } from "../components/EWayBillDialog";
 import { toast } from "sonner";
 import { Switch } from "../components/ui/switch";
 import { PaymentCollectionDialog } from "../components/PaymentCollectionDialog";
+import { InvoicePreviewDialog } from "../components/InvoicePreviewDialog";
 
 interface CartItem {
   id: string;
@@ -246,10 +247,6 @@ export function Sales() {
   const handlePaymentSuccess = (invoiceData: any) => {
     setRecordedInvoice(invoiceData);
     setShowInvoice(true);
-
-    setTimeout(() => {
-      document.getElementById("invoice-document")?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
   };
 
   const handleBackToSales = () => {
@@ -697,34 +694,27 @@ export function Sales() {
              onSuccess={handlePaymentSuccess}
           />
 
-          {/* Invoice Document */}
+          {/* Invoice Document Preview Modal */}
           {showInvoice && selectedCustomer && cartItems.length > 0 && (
-            <div className="mt-6" id="invoice-document">
-              <InvoiceDocument
-                invoiceNumber={recordedInvoice?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`}
-                date={new Date().toISOString().split("T")[0]}
-                customerName={customerName}
-                customerPhone={customerPhone}
-                customerAddress={customerAddress}
-                customerGST={""} // Or fetch it if needed
-                items={cartItems}
-                subtotal={calculateSubtotal()}
-                gstAmount={calculateGST()}
-                discount={(calculateSubtotal() * additionalDiscount) / 100}
-                total={calculateTotal()}
-                onPrint={() => window.print()}
-                onDownload={() => alert("PDF download feature coming soon!")}
-                onSend={handleWhatsAppInvoice}
-              />
-              <div className="mt-4 flex justify-between">
-                <Button variant="outline" onClick={handleBackToSales}>
-                  Back to Sales
-                </Button>
-                <Button variant="outline" onClick={handleNewInvoice}>
-                  New Invoice
-                </Button>
-              </div>
-            </div>
+            <InvoicePreviewDialog
+              open={showInvoice}
+              onOpenChange={(open) => {
+                 setShowInvoice(open);
+                 if (!open) {
+                    handleNewInvoice();
+                 }
+              }}
+              invoiceNumber={recordedInvoice?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`}
+              date={new Date().toISOString().split("T")[0]}
+              customerName={customerName}
+              customerPhone={customerPhone}
+              customerAddress={customerAddress}
+              customerGST={""}
+              items={cartItems}
+              subtotal={calculateSubtotal()}
+              gstAmount={calculateGST()}
+              total={calculateTotal()}
+            />
           )}
         </TabsContent>
 

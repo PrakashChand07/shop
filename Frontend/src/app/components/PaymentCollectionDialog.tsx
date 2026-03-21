@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -37,6 +37,13 @@ export function PaymentCollectionDialog({
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [amountPaid, setAmountPaid] = useState<number | string>(grandTotal);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setAmountPaid(grandTotal);
+      setPaymentMethod("cash");
+    }
+  }, [open, grandTotal]);
 
   const handleConfirm = async () => {
     setIsProcessing(true);

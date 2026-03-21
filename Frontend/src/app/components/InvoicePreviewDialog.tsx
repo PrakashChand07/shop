@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Printer, Download, Share2, MessageCircle, X } from "lucide-react";
+import { Printer, Download, Share2, MessageCircle, X, Check } from "lucide-react";
 import { Logo } from "./Logo";
 
 interface InvoiceItem {
@@ -146,11 +146,11 @@ export function InvoicePreviewDialog({
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleShare}
-              className="bg-white text-blue-600 hover:bg-blue-50 font-semibold"
+              onClick={() => onOpenChange(false)}
+              className="bg-blue-800 text-white hover:bg-blue-900 font-semibold"
             >
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
+              <Check className="h-4 w-4 mr-2" />
+              Done
             </Button>
           </div>
         </div>
