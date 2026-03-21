@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { EWayBillDialog } from "../components/EWayBillDialog";
 import { toast } from "sonner";
 import { Switch } from "../components/ui/switch";
+import { PaymentCollectionDialog } from "../components/PaymentCollectionDialog";
 
 interface CartItem {
   id: string;
@@ -58,6 +59,17 @@ export function Sales() {
   const [gstDiscount, setGstDiscount] = useState(0);
   const [globalGstRate, setGlobalGstRate] = useState<string>("default");
   const [includeGST, setIncludeGST] = useState(true);
+  
+  // Custom customer fields
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+
+  // Payment popup & recorded backend invoice
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [recordedInvoice, setRecordedInvoice] = useState<any>(null);
+
   const navigate = useNavigate();
 
   const [apiProducts, setApiProducts] = useState<any[]>([]);
@@ -166,17 +178,75 @@ export function Sales() {
     return subtotal + gst - additionalDiscountAmount;
   };
 
-  const handleGenerateInvoice = () => {
-    if (!selectedCustomer) {
-      alert("Please select a customer before generating invoice");
+  const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setCustomerPhone(val);
+    if (val.length >= 10) {
+      setIsSearchingCustomer(true);
+      try {
+        const res = await api.get(`/customers?search=${val}`);
+        if (res.data.success && res.data.data.length > 0) {
+          const found = res.data.data[0];
+          setSelectedCustomer(found._id);
+          setCustomerName(found.name);
+          setCustomerAddress(found.address?.street || found.address || "");
+        } else {
+          setSelectedCustomer("");
+        }
+      } catch (error) {
+        console.error("Error fetching customer", error);
+      } finally {
+        setIsSearchingCustomer(false);
+      }
+    } else {
+      setSelectedCustomer("");
+      setCustomerName("");
+      setCustomerAddress("");
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    if (!customerPhone && !customerName) {
+      toast.error("Please enter customer phone or name");
+      return;
+    }
+    if (!customerName) {
+      toast.error("Customer name is required");
       return;
     }
     if (cartItems.length === 0) {
-      alert("Please add items to cart before generating invoice");
+      toast.error("Please add items to cart before generating invoice");
       return;
     }
+
+    if (!selectedCustomer) {
+      try {
+        const res = await api.post('/customers', {
+          name: customerName,
+          phone: customerPhone,
+          address: { street: customerAddress },
+          email: `${Date.now()}@example.com` // Ensure unique or empty email based on backend
+        });
+        if (res.data.success) {
+          setSelectedCustomer(res.data.data._id);
+        } else {
+          return toast.error("Failed to capture customer details");
+        }
+      } catch (error) {
+        console.error("Failed to create customer", error);
+        toast.error("Failed to create customer record");
+        return;
+      }
+    }
+
+    // Instead of showing invoice immediately, show payment collection
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSuccess = (invoiceData: any) => {
+    setRecordedInvoice(invoiceData);
     setShowInvoice(true);
-    // Scroll to invoice
+
     setTimeout(() => {
       document.getElementById("invoice-document")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
@@ -191,7 +261,11 @@ export function Sales() {
     setShowInvoice(false);
     setCartItems([]);
     setSelectedCustomer("");
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerAddress("");
     setAdditionalDiscount(0);
+    setRecordedInvoice(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -366,24 +440,33 @@ export function Sales() {
                   <CardTitle>Invoice Preview</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Customer Selection */}
-                  <div className="space-y-2">
-                    <Label>Select Customer</Label>
-                    <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose customer..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              {customer.name} - {customer.phone}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {/* Customer Details */}
+                  <div className="space-y-3">
+                    <Label>Customer Details</Label>
+                    <div className="space-y-2">
+                       <Input
+                         type="text"
+                         placeholder="Phone Number (auto-fetches data)"
+                         value={customerPhone}
+                         onChange={handlePhoneChange}
+                       />
+                       {isSearchingCustomer && <p className="text-xs text-blue-500">Searching...</p>}
+                       <Input
+                         type="text"
+                         placeholder="Customer Name *"
+                         required
+                         value={customerName}
+                         onChange={(e) => setCustomerName(e.target.value)}
+                         disabled={!!selectedCustomer} // Disabled if auto-fetched
+                       />
+                       <Input
+                         type="text"
+                         placeholder="Address"
+                         value={customerAddress}
+                         onChange={(e) => setCustomerAddress(e.target.value)}
+                         disabled={!!selectedCustomer}
+                       />
+                    </div>
                   </div>
 
                   <Separator />
@@ -600,16 +683,30 @@ export function Sales() {
             </div>
           </div>
 
+          {/* Payment Dialog */}
+          <PaymentCollectionDialog 
+             open={isPaymentDialogOpen}
+             onOpenChange={setIsPaymentDialogOpen}
+             customerId={selectedCustomer}
+             cartItems={cartItems}
+             subtotal={calculateSubtotal()}
+             totalGst={calculateGST()}
+             additionalDiscount={additionalDiscount}
+             grandTotal={calculateTotal()}
+             globalGstRate={globalGstRate}
+             onSuccess={handlePaymentSuccess}
+          />
+
           {/* Invoice Document */}
           {showInvoice && selectedCustomer && cartItems.length > 0 && (
             <div className="mt-6" id="invoice-document">
               <InvoiceDocument
-                invoiceNumber={`INV-${Date.now().toString().slice(-6)}`}
+                invoiceNumber={recordedInvoice?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`}
                 date={new Date().toISOString().split("T")[0]}
-                customerName={customers.find((c) => c.id === selectedCustomer)?.name || ""}
-                customerPhone={customers.find((c) => c.id === selectedCustomer)?.phone}
-                customerAddress={customers.find((c) => c.id === selectedCustomer)?.address}
-                customerGST={customers.find((c) => c.id === selectedCustomer)?.gstNumber}
+                customerName={customerName}
+                customerPhone={customerPhone}
+                customerAddress={customerAddress}
+                customerGST={""} // Or fetch it if needed
                 items={cartItems}
                 subtotal={calculateSubtotal()}
                 gstAmount={calculateGST()}

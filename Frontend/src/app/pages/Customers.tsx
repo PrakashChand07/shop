@@ -1,25 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Search, Plus, MessageSquare, FileText, DollarSign } from "lucide-react";
-import { customers } from "../lib/mockData";
+import { Search, Plus, MessageSquare, FileText, DollarSign, Eye } from "lucide-react";
 import { AddCustomerDialog } from "../components/AddCustomerDialog";
+import api from "../api/axios";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
 export function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerInvoices, setCustomerInvoices] = useState<any[]>([]);
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    fetchCustomers();
+  }, [searchTerm]);
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get(`/customers?search=${searchTerm}`);
+      if (res.data.success) {
+        setCustomers(res.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch customers", error);
+    }
+  };
+
+  const openCustomerView = async (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsViewOpen(true);
+    try {
+      const res = await api.get(`/invoices?customer=${customer._id}`);
+      if (res.data.success) {
+        setCustomerInvoices(res.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch invoices", error);
+    }
+  };
+
+  const filteredCustomers = customers;
 
   const totalCustomers = customers.length;
-  const totalPending = customers.reduce((sum, c) => sum + c.pendingAmount, 0);
-  const totalRevenue = customers.reduce((sum, c) => sum + c.totalPurchases, 0);
+  const totalPending = 0; // Requires backend aggregation
+  const totalRevenue = 0; // Requires backend aggregation
 
   return (
     <div className="space-y-6">
@@ -131,8 +159,8 @@ export function Customers() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="border-b border-gray-100">
+                {filteredCustomers.map((customer: any) => (
+                  <tr key={customer._id} className="border-b border-gray-100">
                     <td className="py-3 text-sm font-medium text-gray-900">
                       {customer.name}
                     </td>
@@ -143,41 +171,24 @@ export function Customers() {
                       </div>
                     </td>
                     <td className="py-3 text-sm text-gray-600">
-                      {customer.address || "-"}
+                      {customer.address?.street || customer.address || "-"}
                     </td>
                     <td className="py-3 text-right text-sm font-medium text-gray-900">
-                      ₹{customer.totalPurchases.toLocaleString("en-IN")}
+                      -
                     </td>
                     <td className="py-3 text-right">
-                      {customer.pendingAmount > 0 ? (
-                        <Badge
-                          variant="destructive"
-                          className="bg-red-100 text-red-700 hover:bg-red-200"
-                        >
-                          ₹{customer.pendingAmount.toLocaleString("en-IN")}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="default"
-                          className="bg-green-100 text-green-700 hover:bg-green-200"
-                        >
-                          Paid
-                        </Badge>
-                      )}
+                       <Badge variant="default" className="bg-blue-100 text-blue-700">
+                         {customer.status || 'Active'}
+                       </Badge>
                     </td>
                     <td className="py-3">
                       <div className="flex justify-center gap-1">
+                        <Button size="sm" variant="ghost" title="View Details" onClick={() => openCustomerView(customer)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button size="sm" variant="ghost" title="Send WhatsApp">
                           <MessageSquare className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" title="View Ledger">
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        {customer.pendingAmount > 0 && (
-                          <Button size="sm" variant="ghost" title="Add Payment">
-                            <DollarSign className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -187,6 +198,53 @@ export function Customers() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Customer Details</DialogTitle>
+          </DialogHeader>
+          {selectedCustomer && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Name</p>
+                  <p className="font-medium">{selectedCustomer.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Phone</p>
+                  <p className="font-medium">{selectedCustomer.phone || '-'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-gray-500">Address</p>
+                  <p className="font-medium">{selectedCustomer.address?.street || selectedCustomer.address || '-'}</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-lg font-medium mb-2">Purchase History</h3>
+                {customerInvoices.length > 0 ? (
+                  <div className="space-y-2">
+                    {customerInvoices.map((inv) => (
+                      <div key={inv._id} className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-blue-600">{inv.invoiceNumber}</p>
+                          <p className="text-xs text-gray-500">{new Date(inv.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold px-2 py-1 bg-green-100 text-green-700 rounded-md">₹{inv.grandTotal}</p>
+                          <p className="text-xs text-gray-500 mt-1">{inv.status}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No purchases found.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
