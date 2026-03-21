@@ -12,6 +12,7 @@ import {
 } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
+import { SharedPagination } from "../components/SharedPagination";
 import api from "../api/axios";
 import { toast } from "sonner";
 
@@ -28,6 +29,10 @@ export function Categories() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   // Form State
   const [formData, setFormData] = useState({
     name: "",
@@ -37,9 +42,15 @@ export function Categories() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/categories');
+      const response = await api.get(`/categories?search=${searchTerm}&page=${currentPage}&limit=10`);
       if (response.data.success) {
         setCategories(response.data.data);
+        if (response.data.pagination) {
+          setTotalPages(response.data.pagination.pages || 1);
+          setTotalItems(response.data.pagination.total || 0);
+        } else {
+          setTotalItems(response.data.data.length);
+        }
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -49,7 +60,7 @@ export function Categories() {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [searchTerm, currentPage]);
 
   const handleOpenDialog = (category?: Category) => {
     if (category) {
@@ -101,10 +112,8 @@ export function Categories() {
     }
   };
 
-  const filteredCategories = categories.filter((category) =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Optional frontend fallback filter if backend search is limited
+  const filteredCategories = categories;
 
   return (
     <div className="space-y-6">
@@ -129,7 +138,10 @@ export function Categories() {
               type="text"
               placeholder="Search categories..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-10"
             />
           </div>
@@ -138,7 +150,7 @@ export function Categories() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Categories ({filteredCategories.length})</CardTitle>
+          <CardTitle>Categories ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -203,6 +215,14 @@ export function Categories() {
               </tbody>
             </table>
           </div>
+          
+          <SharedPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={10}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 
