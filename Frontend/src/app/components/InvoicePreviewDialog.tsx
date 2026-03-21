@@ -95,14 +95,10 @@ export function InvoicePreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] lg:max-w-5xl max-h-[95vh] overflow-hidden p-0 flex flex-col">
-        {/* Header with Actions */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 lg:p-6 print:hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 print:hidden">
           <div className="flex items-center justify-between mb-4">
             <div>
               <DialogTitle className="text-xl lg:text-2xl font-bold">Invoice Preview</DialogTitle>
-              <DialogDescription className="text-blue-100 mt-1">
-                Review and share your invoice
-              </DialogDescription>
             </div>
           </div>
 

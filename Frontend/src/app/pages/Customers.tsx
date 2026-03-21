@@ -171,9 +171,6 @@ export function Customers() {
                         <Button size="sm" variant="ghost" title="View Details" onClick={() => openCustomerView(customer)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" title="Send WhatsApp">
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
                       </div>
                     </td>
                   </tr>
