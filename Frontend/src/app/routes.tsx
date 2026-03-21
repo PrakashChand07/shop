@@ -3,6 +3,7 @@ import { MainLayout } from "./components/MainLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Sales } from "./pages/Sales";
+import { Invoices } from "./pages/Invoices";
 import { Purchase } from "./pages/Purchase";
 import { Inventory } from "./pages/Inventory";
 import { Categories } from "./pages/Categories";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: Dashboard },
       { path: "sales", Component: Sales },
+      { path: "invoices", Component: Invoices },
       { path: "invoice-preview", Component: InvoicePreview },
       { path: "purchase", Component: Purchase },
       { path: "inventory", Component: Inventory },

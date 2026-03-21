@@ -34,6 +34,7 @@ import { useIndustry } from "../context/IndustryContext";
 const navigation = [
   { name: "Dashboard", path: "/", icon: LayoutDashboard },
   { name: "Sales", path: "/sales", icon: ShoppingCart },
+  { name: "Invoices", path: "/invoices", icon: FileText },
   { name: "Purchase", path: "/purchase", icon: Package },
   { name: "Inventory", path: "/inventory", icon: ShoppingBag },
   { name: "Categories", path: "/categories", icon: Tags },

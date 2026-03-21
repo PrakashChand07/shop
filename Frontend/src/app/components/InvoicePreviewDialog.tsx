@@ -104,14 +104,6 @@ export function InvoicePreviewDialog({
                 Review and share your invoice
               </DialogDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-              className="text-white hover:bg-blue-500"
-            >
-              <X className="h-5 w-5" />
-            </Button>
           </div>
 
           {/* Action Buttons */}
