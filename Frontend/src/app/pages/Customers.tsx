@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Search, Plus, MessageSquare, FileText, DollarSign, Eye } from "lucide-react";
 import { AddCustomerDialog } from "../components/AddCustomerDialog";
+import { SharedPagination } from "../components/SharedPagination";
 import api from "../api/axios";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
@@ -14,16 +15,26 @@ export function Customers() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [customerInvoices, setCustomerInvoices] = useState<any[]>([]);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     fetchCustomers();
-  }, [searchTerm]);
+  }, [searchTerm, currentPage]);
 
   const fetchCustomers = async () => {
     try {
-      const res = await api.get(`/customers?search=${searchTerm}`);
+      const res = await api.get(`/customers?search=${searchTerm}&page=${currentPage}&limit=10`);
       if (res.data.success) {
         setCustomers(res.data.data);
+        if (res.data.pagination) {
+          setTotalPages(res.data.pagination.pages || 1);
+          setTotalItems(res.data.pagination.total || 0);
+        } else {
+          setTotalItems(res.data.data.length);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch customers", error);
@@ -45,7 +56,6 @@ export function Customers() {
 
   const filteredCustomers = customers;
 
-  const totalCustomers = customers.length;
   const totalPending = 0; // Requires backend aggregation
   const totalRevenue = 0; // Requires backend aggregation
 
@@ -69,7 +79,7 @@ export function Customers() {
               <div>
                 <p className="text-sm text-gray-600">Total Customers</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  {totalCustomers}
+                  {totalItems}
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
@@ -121,7 +131,10 @@ export function Customers() {
               type="text"
               placeholder="Search customers by name, phone, or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-10"
             />
           </div>
@@ -131,7 +144,7 @@ export function Customers() {
       {/* Customers Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Customers ({filteredCustomers.length})</CardTitle>
+          <CardTitle>Customers ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -196,6 +209,14 @@ export function Customers() {
               </tbody>
             </table>
           </div>
+          
+          <SharedPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={10}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 

@@ -658,21 +658,9 @@ export function Sales() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleGenerateInvoice}>
                       Generate Invoice
-                    </Button>
-                    <Button variant="outline" className="gap-2" onClick={handleWhatsAppInvoice}>
-                      <Send className="h-4 w-4" />
-                      WhatsApp
-                    </Button>
-                    <Button variant="outline" className="gap-2" onClick={handlePrintInvoice}>
-                      <Printer className="h-4 w-4" />
-                      Print
-                    </Button>
-                    <Button variant="outline" className="gap-2" onClick={handleShareInvoice}>
-                      <Share2 className="h-4 w-4" />
-                      Payment Link
                     </Button>
                   </div>
                 </CardContent>

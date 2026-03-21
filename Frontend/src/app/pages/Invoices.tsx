@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Search, Eye, Filter } from "lucide-react";
+import { Search, Eye, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { InvoicePreviewDialog } from "../components/InvoicePreviewDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { SharedPagination } from "../components/SharedPagination";
 import api from "../api/axios";
 
 export function Invoices() {
@@ -12,16 +14,24 @@ export function Invoices() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     fetchInvoices();
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter, currentPage]);
 
   const fetchInvoices = async () => {
     try {
-      const res = await api.get(`/invoices?search=${searchTerm}`);
+      const statusQuery = statusFilter !== "all" ? `&status=${statusFilter}` : "";
+      const res = await api.get(`/invoices?search=${searchTerm}&page=${currentPage}&limit=10${statusQuery}`);
       if (res.data.success) {
         setInvoices(res.data.data);
+        setTotalPages(res.data.pagination.pages || 1);
+        setTotalItems(res.data.pagination.total || 0);
       }
     } catch (error) {
       console.error("Failed to fetch invoices", error);
@@ -74,14 +84,28 @@ export function Invoices() {
                 type="text"
                 placeholder="Search by invoice number..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1); // Reset to page 1 on search change
+                }}
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </Button>
+            <div className="w-[180px]">
+              <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}>
+                <SelectTrigger>
+                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -161,6 +185,14 @@ export function Invoices() {
               </tbody>
             </table>
           </div>
+          
+          <SharedPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={10}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
       

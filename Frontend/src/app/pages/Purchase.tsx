@@ -21,10 +21,15 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { CreatePurchaseDialog } from "../components/CreatePurchaseDialog";
+import { SharedPagination } from "../components/SharedPagination";
 
 export function Purchase() {
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [apiSuppliers, setApiSuppliers] = useState<any[]>([]);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Create PO Form State
   const [products, setProducts] = useState<any[]>([]);
@@ -42,9 +47,15 @@ export function Purchase() {
 
   const fetchPurchaseOrders = async () => {
     try {
-      const res = await api.get('/purchase-orders');
+      const res = await api.get(`/purchase-orders?page=${currentPage}&limit=5`);
       if (res.data.success) {
         setPurchaseOrders(res.data.data);
+        if (res.data.pagination) {
+          setTotalPages(res.data.pagination.pages || 1);
+          setTotalItems(res.data.pagination.total || 0);
+        } else {
+          setTotalItems(res.data.data.length);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -64,9 +75,12 @@ export function Purchase() {
   };
 
   useEffect(() => {
-    fetchPurchaseOrders();
     fetchSuppliers();
   }, []);
+
+  useEffect(() => {
+    fetchPurchaseOrders();
+  }, [currentPage]);
 
   // Handle Debounce for Product Search
   useEffect(() => {
@@ -377,17 +391,6 @@ export function Purchase() {
               </div>
 
               <div className="flex gap-2">
-                {editPOId && (
-                  <Button type="button" variant="outline" className="w-full" onClick={() => {
-                    setEditPOId(null);
-                    setSupplier("");
-                    setOrderDate(new Date().toISOString().split("T")[0]);
-                    setExpectedDelivery("");
-                    setAmount("");
-                    setNotes("");
-                    setItems([]);
-                  }}>Cancel Edit</Button>
-                )}
                 <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
                   {editPOId ? "Update Purchase Order" : "Create Purchase Order"}
                 </Button>
@@ -459,6 +462,14 @@ export function Purchase() {
                 ))
               )}
             </div>
+            
+            <SharedPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={5}
+              onPageChange={setCurrentPage}
+            />
           </CardContent>
         </Card>
       </div>

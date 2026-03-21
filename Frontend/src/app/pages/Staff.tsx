@@ -37,6 +37,7 @@ import {
 import { AddStaffDialog } from "../components/AddStaffDialog";
 import { PaySalaryDialog } from "../components/PaySalaryDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { SharedPagination } from "../components/SharedPagination";
 
 export function Staff() {
   const [staff, setStaff] = useState<any[]>([]);
@@ -50,6 +51,10 @@ export function Staff() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showPaySalaryDialog, setShowPaySalaryDialog] = useState(false);
   const [staffToEdit, setStaffToEdit] = useState<any>(null);
+
+  const [staffPage, setStaffPage] = useState(1);
+  const [salaryPage, setSalaryPage] = useState(1);
+  const itemsPerPage = 10;
 
   const fetchStaff = async () => {
     try {
@@ -123,6 +128,11 @@ export function Staff() {
 
     return matchesSearch && matchesDepartment && matchesStatus;
   });
+
+  const paginatedStaff = filteredStaff.slice((staffPage - 1) * itemsPerPage, staffPage * itemsPerPage);
+
+  const filteredSalaries = salaryPayments; // Or add frontend filters if needed
+  const paginatedSalaries = filteredSalaries.slice((salaryPage - 1) * itemsPerPage, salaryPage * itemsPerPage);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -300,11 +310,14 @@ export function Staff() {
                   <Input
                     placeholder="Search by name, ID, or designation..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setStaffPage(1);
+                    }}
                     className="pl-9"
                   />
                 </div>
-                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <Select value={departmentFilter} onValueChange={(v) => { setDepartmentFilter(v); setStaffPage(1); }}>
                   <SelectTrigger className="w-full sm:w-[180px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Department" />
@@ -318,7 +331,7 @@ export function Staff() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setStaffPage(1); }}>
                   <SelectTrigger className="w-full sm:w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
@@ -346,14 +359,14 @@ export function Staff() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStaff.length === 0 ? (
+                    {paginatedStaff.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           No staff found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredStaff.map((employee) => (
+                      paginatedStaff.map((employee) => (
                         <TableRow key={employee._id}>
                           <TableCell className="font-mono font-semibold">
                             {employee.employeeId}
@@ -398,6 +411,14 @@ export function Staff() {
                   </TableBody>
                 </Table>
               </div>
+
+              <SharedPagination
+                currentPage={staffPage}
+                totalPages={Math.ceil(filteredStaff.length / itemsPerPage)}
+                totalItems={filteredStaff.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setStaffPage}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -478,14 +499,14 @@ export function Staff() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salaryPayments.length === 0 ? (
+                    {paginatedSalaries.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                           No salary payments found for selected criteria.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      salaryPayments.map((payment) => (
+                      paginatedSalaries.map((payment) => (
                         <TableRow key={payment._id}>
                         <TableCell className="font-mono">
                           {payment.employeeId}
@@ -528,6 +549,13 @@ export function Staff() {
                   </TableBody>
                 </Table>
               </div>
+              <SharedPagination
+                currentPage={salaryPage}
+                totalPages={Math.ceil(filteredSalaries.length / itemsPerPage)}
+                totalItems={filteredSalaries.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setSalaryPage}
+              />
             </CardContent>
           </Card>
         </TabsContent>

@@ -7,16 +7,27 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Search, Plus, Phone, Mail, Trash2, Edit } from "lucide-react";
 import { AddSupplierDialog } from "../components/AddSupplierDialog";
+import { SharedPagination } from "../components/SharedPagination";
 
 export function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [apiSuppliers, setApiSuppliers] = useState<any[]>([]);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   const fetchSuppliers = async () => {
     try {
-      const res = await api.get('/suppliers');
+      const res = await api.get(`/suppliers?search=${searchTerm}&page=${currentPage}&limit=10`);
       if (res.data.success) {
         setApiSuppliers(res.data.data);
+        if (res.data.pagination) {
+          setTotalPages(res.data.pagination.pages || 1);
+          setTotalItems(res.data.pagination.total || 0);
+        } else {
+          setTotalItems(res.data.data.length);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -26,7 +37,7 @@ export function Suppliers() {
 
   useEffect(() => {
     fetchSuppliers();
-  }, []);
+  }, [searchTerm, currentPage]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this supplier?")) {
@@ -43,12 +54,8 @@ export function Suppliers() {
     }
   };
 
-  const filteredSuppliers = apiSuppliers.filter(
-    (supplier) =>
-      supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.phone?.includes(searchTerm) ||
-      supplier.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Optional frontend fallback filter if backend search is limited
+  const filteredSuppliers = apiSuppliers;
 
   return (
     <div className="space-y-6">
@@ -71,7 +78,10 @@ export function Suppliers() {
               type="text"
               placeholder="Search suppliers by name, phone, or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-10"
             />
           </div>
@@ -81,7 +91,7 @@ export function Suppliers() {
       {/* Suppliers Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Suppliers ({filteredSuppliers.length})</CardTitle>
+          <CardTitle>Suppliers ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -97,11 +107,8 @@ export function Suppliers() {
                   <th className="pb-3 text-left text-sm font-medium text-gray-600">
                     GST Number
                   </th>
-                  <th className="pb-3 text-right text-sm font-medium text-gray-600">
-                    Total Purchases
-                  </th>
-                  <th className="pb-3 text-right text-sm font-medium text-gray-600">
-                    Pending Amount
+                  <th className="pb-3 text-left text-sm font-medium text-gray-600">
+                    Address
                   </th>
                   <th className="pb-3 text-center text-sm font-medium text-gray-600">
                     Actions
@@ -131,25 +138,8 @@ export function Suppliers() {
                     <td className="py-3 text-sm text-gray-600">
                       {supplier.gstNumber || "-"}
                     </td>
-                    <td className="py-3 text-right text-sm font-medium text-gray-900">
-                      ₹{(supplier.totalPurchases || 0).toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3 text-right">
-                      {(supplier.outstanding || 0) > 0 ? (
-                        <Badge
-                          variant="destructive"
-                          className="bg-orange-100 text-orange-700 hover:bg-orange-200"
-                        >
-                          ₹{(supplier.outstanding || 0).toLocaleString("en-IN")}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="default"
-                          className="bg-green-100 text-green-700 hover:bg-green-200"
-                        >
-                          Paid
-                        </Badge>
-                      )}
+                    <td className="py-3 text-left text-sm font-medium text-gray-900">
+                      {supplier.address || "-"}
                     </td>
                     <td className="py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -164,6 +154,14 @@ export function Suppliers() {
               </tbody>
             </table>
           </div>
+          
+          <SharedPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={10}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
     </div>

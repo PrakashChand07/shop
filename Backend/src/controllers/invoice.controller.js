@@ -85,6 +85,18 @@ const createInvoice = async (req, res, next) => {
             createdBy: req.user._id,
         });
 
+        // Reduce product stock automatically
+        if (invoice.type === 'invoice' && invoice.lineItems && invoice.lineItems.length > 0) {
+            const Product = require('../models/Product');
+            for (const item of invoice.lineItems) {
+                if (item.product) {
+                    await Product.findByIdAndUpdate(item.product, {
+                        $inc: { stock: -item.quantity }
+                    });
+                }
+            }
+        }
+
         await invoice.populate('customer', 'name email phone companyName');
         res.status(201).json({ success: true, message: 'Invoice created.', data: invoice });
     } catch (error) {

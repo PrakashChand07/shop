@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { AddProductDialog } from "../components/AddProductDialog";
+import { SharedPagination } from "../components/SharedPagination";
 import { useIndustry } from "../context/IndustryContext";
 import api from "../api/axios";
 import { toast } from "sonner";
@@ -22,15 +23,26 @@ export function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const { isPharmacy, isFootwear } = useIndustry();
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   const fetchData = async () => {
     try {
+      const categoryQuery = categoryFilter !== "all" ? `&category=${categoryFilter}` : "";
       const [prodRes, catRes] = await Promise.all([
-        api.get('/products'),
+        api.get(`/products?search=${searchTerm}&page=${currentPage}&limit=10${categoryQuery}`),
         api.get('/categories')
       ]);
       if (prodRes.data.success) {
         setProducts(prodRes.data.data);
+        if (prodRes.data.pagination) {
+          setTotalPages(prodRes.data.pagination.pages || 1);
+          setTotalItems(prodRes.data.pagination.total || 0);
+        } else {
+          setTotalItems(prodRes.data.data.length);
+        }
       }
       if (catRes.data.success) {
         setCategories(catRes.data.data);
@@ -43,7 +55,7 @@ export function Inventory() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [searchTerm, categoryFilter, currentPage]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this product?")) {
@@ -58,16 +70,8 @@ export function Inventory() {
     }
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory =
-      categoryFilter === "all" || product.category === categoryFilter;
-
-    return matchesSearch && matchesCategory;
-  });
+  // Optional frontend fallback filter if backend search is limited
+  const filteredProducts = products;
 
   const lowStockProducts = products.filter(
     (product) => product.stock <= (product.lowStockAlert || 10)
@@ -118,11 +122,17 @@ export function Inventory() {
                 type="text"
                 placeholder="Search products by name, SKU..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select value={categoryFilter} onValueChange={(val) => {
+              setCategoryFilter(val);
+              setCurrentPage(1);
+            }}>
               <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
@@ -141,7 +151,7 @@ export function Inventory() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Products ({filteredProducts.length})</CardTitle>
+          <CardTitle>Products ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -186,7 +196,7 @@ export function Inventory() {
                         <td className="py-3 text-right text-sm font-medium text-gray-900">
                         ₹{product.sellingPrice || 0}
                         </td>
-                        <td className="py-3 text-center text-sm font-medium text-gray-900">
+                        <td className={`py-3 text-center text-sm ${product.stock <= (product.lowStockAlert || 10) ? 'font-bold text-red-600' : 'font-medium text-gray-900'}`}>
                         {product.stock} {product.unit}
                         </td>
                         <td className="py-3 text-center text-sm text-gray-600">
@@ -224,6 +234,14 @@ export function Inventory() {
               </tbody>
             </table>
           </div>
+          
+          <SharedPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={10}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
     </div>
