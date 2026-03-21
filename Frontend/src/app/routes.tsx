@@ -8,6 +8,7 @@ import { Purchase } from "./pages/Purchase";
 import { Inventory } from "./pages/Inventory";
 import { Categories } from "./pages/Categories";
 import { Customers } from "./pages/Customers";
+import { CustomerDetails } from "./pages/CustomerDetails";
 import { Suppliers } from "./pages/Suppliers";
 import { Accounting } from "./pages/Accounting";
 import { GSTReports } from "./pages/GSTReports";
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
       { path: "inventory", Component: Inventory },
       { path: "categories", Component: Categories },
       { path: "customers", Component: Customers },
+      { path: "customers/:id", Component: CustomerDetails },
       { path: "suppliers", Component: Suppliers },
       { path: "staff", Component: Staff },
       { path: "accounting", Component: Accounting },

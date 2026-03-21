@@ -33,11 +33,30 @@ const getCustomers = async (req, res, next) => {
             .populate('createdBy', 'name email')
             .sort(sortObj)
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
+
+        // Calculate total purchases per customer
+        const Invoice = require('../models/Invoice');
+        const customerIds = customers.map(c => c._id);
+        const totals = await Invoice.aggregate([
+            { $match: { customer: { $in: customerIds }, type: 'invoice', status: { $ne: 'cancelled' } } },
+            { $group: { _id: '$customer', totalPurchases: { $sum: '$grandTotal' } } }
+        ]);
+
+        const totalsMap = totals.reduce((acc, curr) => {
+            acc[curr._id.toString()] = curr.totalPurchases;
+            return acc;
+        }, {});
+
+        const customersWithTotals = customers.map(c => ({
+            ...c,
+            totalPurchases: totalsMap[c._id.toString()] || 0
+        }));
 
         res.status(200).json({
             success: true,
-            data: customers,
+            data: customersWithTotals,
             pagination: { total, page, pages: Math.ceil(total / limit), limit },
         });
     } catch (error) {

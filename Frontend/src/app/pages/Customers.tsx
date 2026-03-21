@@ -7,14 +7,12 @@ import { Search, Plus, MessageSquare, FileText, DollarSign, Eye } from "lucide-r
 import { AddCustomerDialog } from "../components/AddCustomerDialog";
 import { SharedPagination } from "../components/SharedPagination";
 import api from "../api/axios";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { useNavigate } from "react-router";
 
 export function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [customers, setCustomers] = useState<any[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-  const [customerInvoices, setCustomerInvoices] = useState<any[]>([]);
-  const [isViewOpen, setIsViewOpen] = useState(false);
+  const navigate = useNavigate();
   
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -41,23 +39,13 @@ export function Customers() {
     }
   };
 
-  const openCustomerView = async (customer: any) => {
-    setSelectedCustomer(customer);
-    setIsViewOpen(true);
-    try {
-      const res = await api.get(`/invoices?customer=${customer._id}`);
-      if (res.data.success) {
-        setCustomerInvoices(res.data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch invoices", error);
-    }
+  const openCustomerView = (customer: any) => {
+    navigate(`/customers/${customer._id}`);
   };
 
   const filteredCustomers = customers;
 
-  const totalPending = 0; // Requires backend aggregation
-  const totalRevenue = 0; // Requires backend aggregation
+  const totalRevenue = customers.reduce((sum, c) => sum + (c.totalPurchases || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -93,29 +81,13 @@ export function Customers() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
+                <p className="text-sm text-gray-600">Total Revenue (This Page)</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">
                   ₹{totalRevenue.toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
                 <DollarSign className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending Payments</p>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  ₹{totalPending.toLocaleString("en-IN")}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100">
-                <DollarSign className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </CardContent>
@@ -164,7 +136,7 @@ export function Customers() {
                     Total Purchases
                   </th>
                   <th className="pb-3 text-right text-sm font-medium text-gray-600">
-                    Pending Amount
+                    Status
                   </th>
                   <th className="pb-3 text-center text-sm font-medium text-gray-600">
                     Actions
@@ -186,8 +158,8 @@ export function Customers() {
                     <td className="py-3 text-sm text-gray-600">
                       {customer.address?.street || customer.address || "-"}
                     </td>
-                    <td className="py-3 text-right text-sm font-medium text-gray-900">
-                      -
+                    <td className="py-3 text-right text-sm font-bold text-green-600">
+                      ₹{(customer.totalPurchases || 0).toLocaleString("en-IN")}
                     </td>
                     <td className="py-3 text-right">
                        <Badge variant="default" className="bg-blue-100 text-blue-700">
@@ -220,52 +192,6 @@ export function Customers() {
         </CardContent>
       </Card>
 
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Customer Details</DialogTitle>
-          </DialogHeader>
-          {selectedCustomer && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Name</p>
-                  <p className="font-medium">{selectedCustomer.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium">{selectedCustomer.phone || '-'}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium">{selectedCustomer.address?.street || selectedCustomer.address || '-'}</p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-lg font-medium mb-2">Purchase History</h3>
-                {customerInvoices.length > 0 ? (
-                  <div className="space-y-2">
-                    {customerInvoices.map((inv) => (
-                      <div key={inv._id} className="flex justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-blue-600">{inv.invoiceNumber}</p>
-                          <p className="text-xs text-gray-500">{new Date(inv.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold px-2 py-1 bg-green-100 text-green-700 rounded-md">₹{inv.grandTotal}</p>
-                          <p className="text-xs text-gray-500 mt-1">{inv.status}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No purchases found.</p>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
