@@ -16,18 +16,20 @@ export function Invoices() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   
   const [statusFilter, setStatusFilter] = useState("all");
+  const [gstTypeFilter, setGstTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     fetchInvoices();
-  }, [searchTerm, statusFilter, currentPage]);
+  }, [searchTerm, statusFilter, gstTypeFilter, currentPage]);
 
   const fetchInvoices = async () => {
     try {
       const statusQuery = statusFilter !== "all" ? `&status=${statusFilter}` : "";
-      const res = await api.get(`/invoices?search=${searchTerm}&page=${currentPage}&limit=10${statusQuery}`);
+      const gstQuery = gstTypeFilter !== "all" ? `&gstType=${gstTypeFilter}` : "";
+      const res = await api.get(`/invoices?search=${searchTerm}&page=${currentPage}&limit=10${statusQuery}${gstQuery}`);
       if (res.data.success) {
         setInvoices(res.data.data);
         setTotalPages(res.data.pagination.pages || 1);
@@ -92,6 +94,19 @@ export function Invoices() {
               />
             </div>
             <div className="w-[180px]">
+              <Select value={gstTypeFilter} onValueChange={(val) => { setGstTypeFilter(val); setCurrentPage(1); }}>
+                <SelectTrigger>
+                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
+                  <SelectValue placeholder="Bill Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Bills</SelectItem>
+                  <SelectItem value="gst">GST Bill</SelectItem>
+                  <SelectItem value="nongst">Non-GST Bill</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-[180px]">
               <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}>
                 <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2 text-gray-400" />
@@ -133,6 +148,9 @@ export function Invoices() {
                     Amount
                   </th>
                   <th className="pb-3 text-center text-sm font-medium text-gray-600">
+                    Type
+                  </th>
+                  <th className="pb-3 text-center text-sm font-medium text-gray-600">
                     Status
                   </th>
                   <th className="pb-3 text-center text-sm font-medium text-gray-600">
@@ -147,13 +165,25 @@ export function Invoices() {
                       {invoice.invoiceNumber}
                     </td>
                     <td className="py-3 text-sm text-gray-600">
-                      {new Date(invoice.createdAt).toLocaleDateString()}
+                      <div>
+                        {new Date(invoice.createdAt).toLocaleDateString('en-IN')}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(invoice.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     </td>
                     <td className="py-3 text-sm text-gray-900 font-medium">
                       {invoice.customer?.name || "N/A"}
                     </td>
                     <td className="py-3 text-right text-sm font-medium text-gray-900">
                       ₹{invoice.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 text-center">
+                      {(invoice.totalTax || 0) > 0 ? (
+                        <span className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded-md font-medium">GST</span>
+                      ) : (
+                        <span className="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-md font-medium">Non-GST</span>
+                      )}
                     </td>
                     <td className="py-3 text-center">
                       <Badge
@@ -177,7 +207,7 @@ export function Invoices() {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 text-center text-gray-500">
                       No invoices found.
                     </td>
                   </tr>

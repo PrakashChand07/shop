@@ -31,6 +31,7 @@ import {
 import { Separator } from "../components/ui/separator";
 import { useNavigate } from "react-router";
 import { InvoiceDocument } from "../components/InvoiceDocument";
+import { QuickInvoice } from "../components/QuickInvoice";
 import { CreateInvoiceDialog } from "../components/CreateInvoiceDialog";
 import { POSInterface } from "../components/POSInterface";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -362,12 +363,12 @@ export function Sales() {
       {/* Tabs for Different Views */}
       <Tabs defaultValue="traditional" className="space-y-6">
         <TabsList className="grid w-full lg:w-auto lg:inline-grid grid-cols-3 gap-4">
-          <TabsTrigger value="traditional" className="gap-2">
+          <TabsTrigger value="traditional" className="gap-2 oi">
             <LayoutGrid className="h-4 w-4" />
             <span className="hidden sm:inline">Traditional Billing</span>
             <span className="sm:hidden">Traditional</span>
           </TabsTrigger>
-          <TabsTrigger value="pos" className="gap-2">
+          <TabsTrigger value="pos" className="gap-2 pointer-events-none">
             <Monitor className="h-4 w-4" />
             <span className="hidden sm:inline">POS Machine</span>
             <span className="sm:hidden">POS</span>
@@ -713,7 +714,7 @@ export function Sales() {
 
         {/* Quick Invoice */}
         <TabsContent value="quick" className="space-y-6">
-          <CreateInvoiceDialog />
+          <QuickInvoice />
         </TabsContent>
       </Tabs>
     </div>

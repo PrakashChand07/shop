@@ -14,13 +14,15 @@ const getPagination = (query) => {
 const getInvoices = async (req, res, next) => {
     try {
         const { page, limit, skip } = getPagination(req.query);
-        const { status, customer, type, search, sort = 'createdAt', order = 'desc' } = req.query;
+        const { status, customer, type, search, gstType, sort = 'createdAt', order = 'desc' } = req.query;
 
         const filter = { company: req.companyId };
         if (status) filter.status = status;
         if (customer) filter.customer = customer;
         if (type) filter.type = type;
         if (search) filter.invoiceNumber = { $regex: search, $options: 'i' };
+        if (gstType === 'gst') filter.totalTax = { $gt: 0 };
+        else if (gstType === 'nongst') filter.totalTax = { $eq: 0 };
 
         const sortObj = { [sort]: order === 'asc' ? 1 : -1 };
         const total = await Invoice.countDocuments(filter);
