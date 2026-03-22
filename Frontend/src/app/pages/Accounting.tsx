@@ -214,7 +214,6 @@ export function Accounting() {
                   border: "1px solid #e5e7eb",
                   borderRadius: "8px",
                 }}
-                id="profit-loss-tooltip"
               />
               <Legend id="profit-loss-legend" />
               <Bar dataKey="income" fill="#10b981" name="Income (₹)" id="income-bar" />
