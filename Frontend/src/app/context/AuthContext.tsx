@@ -16,7 +16,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string, companyName: string, industryType: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, companyName: string, industryType: string, phone: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -24,18 +24,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Check if user is already logged in on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem("anjum_user");
-    const token = localStorage.getItem("anjum_token");
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const storedUser = localStorage.getItem("anjum_user");
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
     }
-  }, []);
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return !!localStorage.getItem("anjum_token");
+  });
+
+
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -66,13 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     companyName: string,
-    industryType: string
+    industryType: string,
+    phone: string
   ): Promise<boolean> => {
     try {
       const response = await api.post('/company/register', {
         companyName,
         companyEmail: email, // Using same email for company
         industryType,
+        phone,
         adminName: name,
         adminEmail: email,
         adminPassword: password

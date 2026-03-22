@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Building2, Pill, ShoppingBag, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
+import { Building2, Pill, ShoppingBag, Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight, ArrowLeft, Phone } from "lucide-react";
 
 export function Signup() {
   const [step, setStep] = useState(1);
@@ -13,6 +13,7 @@ export function Signup() {
   const [companyName, setCompanyName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +43,7 @@ export function Signup() {
     setLoading(true);
 
     // Validation
-    if (!companyName || !name || !email || !password || !confirmPassword) {
+    if (!companyName || !name || !email || !phone || !password || !confirmPassword) {
       setError("Please fill in all fields");
       setLoading(false);
       return;
@@ -60,7 +61,7 @@ export function Signup() {
       return;
     }
 
-    const success = await signup(name, email, password, companyName, industryType);
+    const success = await signup(name, email, password, companyName, industryType, phone);
     setLoading(false);
 
     if (success) {
@@ -188,6 +189,23 @@ export function Signup() {
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10 h-11"
                         autoComplete="email"
+                    />
+                    </div>
+                </div>
+
+                {/* Phone Field */}
+                <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="pl-10 h-11"
+                        autoComplete="tel"
                     />
                     </div>
                 </div>
