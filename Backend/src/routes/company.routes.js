@@ -6,14 +6,17 @@ const {
     getCompanyProfile,
     updateCompanyProfile,
     uploadLogo,
+    uploadSignature,
+    uploadSeal,
     inviteUser,
     getCompanyUsers,
     updateCompanyUser,
     deleteCompanyUser,
+    deleteLogoOrSignature,
 } = require('../controllers/company.controller');
 const { protect, authorize } = require('../middleware/auth');
 const tenantFilter = require('../middleware/tenantFilter');
-const { uploadLogo: multerLogo } = require('../middleware/upload');
+const { uploadLogo: multerLogo, uploadSignature: multerSignature, uploadSeal: multerSeal } = require('../middleware/upload');
 const validate = require('../middleware/validate');
 
 // POST /api/company/register (Public — creates company + admin)
@@ -40,6 +43,15 @@ router.route('/profile')
 
 // POST /api/company/logo
 router.post('/logo', authorize('admin'), multerLogo.single('logo'), uploadLogo);
+
+// POST /api/company/signature
+router.post('/signature', authorize('admin'), multerSignature.single('signature'), uploadSignature);
+
+// POST /api/company/seal
+router.post('/seal', authorize('admin'), multerSeal.single('seal'), uploadSeal);
+
+// DELETE /api/company/:type (logo or signature or seal)
+router.delete('/:type', authorize('admin'), deleteLogoOrSignature);
 
 // GET /POST /api/company/users
 router.route('/users')

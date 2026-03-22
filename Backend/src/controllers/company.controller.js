@@ -87,10 +87,19 @@ const getCompanyProfile = async (req, res, next) => {
 const updateCompanyProfile = async (req, res, next) => {
     try {
         const allowed = [
-            'name', 'phone', 'website', 'address',
+            'name', 'email', 'phone', 'website', 'address',
             'gstin', 'panNumber', 'invoicePrefix', 'currency',
             'financialYearStart', 'bankDetails', 'defaultTerms',
         ];
+
+        // If email is being updated, check if it already exists
+        if (req.body.email) {
+            const existing = await Company.findOne({ email: req.body.email.toLowerCase(), _id: { $ne: req.companyId } });
+            if (existing) {
+                return res.status(400).json({ success: false, message: 'Company email already registered.' });
+            }
+        }
+
         const updates = {};
         allowed.forEach((field) => {
             if (req.body[field] !== undefined) updates[field] = req.body[field];
@@ -128,6 +137,60 @@ const uploadLogo = async (req, res, next) => {
             { new: true }
         );
         res.status(200).json({ success: true, message: 'Logo uploaded.', data: { logo: updated.logo } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Upload company signature
+// @route   POST /api/company/signature
+// @access  Private (Admin)
+const uploadSignature = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded.' });
+        }
+
+        // Delete old signature from Cloudinary if exists
+        const company = await Company.findById(req.companyId);
+        if (company.signature) {
+            const publicId = company.signature.split('/').pop().split('.')[0];
+            await cloudinary.uploader.destroy(`billing-saas/signatures/${publicId}`).catch(() => { });
+        }
+
+        const updated = await Company.findByIdAndUpdate(
+            req.companyId,
+            { signature: req.file.path },
+            { new: true }
+        );
+        res.status(200).json({ success: true, message: 'Signature uploaded.', data: { signature: updated.signature } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Upload company seal
+// @route   POST /api/company/seal
+// @access  Private (Admin)
+const uploadSeal = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded.' });
+        }
+
+        // Delete old seal from Cloudinary if exists
+        const company = await Company.findById(req.companyId);
+        if (company.seal) {
+            const publicId = company.seal.split('/').pop().split('.')[0];
+            await cloudinary.uploader.destroy(`billing-saas/seals/${publicId}`).catch(() => { });
+        }
+
+        const updated = await Company.findByIdAndUpdate(
+            req.companyId,
+            { seal: req.file.path },
+            { new: true }
+        );
+        res.status(200).json({ success: true, message: 'Seal uploaded.', data: { seal: updated.seal } });
     } catch (error) {
         next(error);
     }
@@ -234,11 +297,40 @@ const deleteCompanyUser = async (req, res, next) => {
     }
 };
 
+// @desc    Remove company logo or signature
+// @route   DELETE /api/company/:type (logo or signature)
+// @access  Private (Admin)
+const deleteLogoOrSignature = async (req, res, next) => {
+    try {
+        const { type } = req.params;
+        if (!['logo', 'signature', 'seal'].includes(type)) {
+            return res.status(400).json({ success: false, message: 'Invalid type.' });
+        }
+
+        const company = await Company.findById(req.companyId);
+        if (company && company[type]) {
+            const publicId = company[type].split('/').pop().split('.')[0];
+            await cloudinary.uploader.destroy(`billing-saas/${type}s/${publicId}`).catch(() => { });
+            
+            // Update company
+            company[type] = null;
+            await company.save();
+        }
+
+        res.status(200).json({ success: true, message: `${type} removed successfully.` });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     registerCompany,
     getCompanyProfile,
     updateCompanyProfile,
     uploadLogo,
+    uploadSignature,
+    uploadSeal,
+    deleteLogoOrSignature,
     inviteUser,
     getCompanyUsers,
     updateCompanyUser,

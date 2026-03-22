@@ -31,11 +31,33 @@ const receiptStorage = new CloudinaryStorage({
     },
 });
 
+// ── Company Signature ───────────────────────────────────────
+const signatureStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'billing-saas/signatures',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'svg'],
+        transformation: [{ width: 300, height: 150, crop: 'limit' }],
+    },
+});
+
+// ── Company Seal ───────────────────────────────────────
+const sealStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'billing-saas/seals',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'svg'],
+        transformation: [{ width: 300, height: 300, crop: 'limit' }],
+    },
+});
+
 // File size limit: 5MB
 const fileSizeLimit = 5 * 1024 * 1024;
 
 const uploadLogo = multer({ storage: logoStorage, limits: { fileSize: fileSizeLimit } });
 const uploadAvatar = multer({ storage: avatarStorage, limits: { fileSize: fileSizeLimit } });
 const uploadReceipt = multer({ storage: receiptStorage, limits: { fileSize: fileSizeLimit } });
+const uploadSignature = multer({ storage: signatureStorage, limits: { fileSize: fileSizeLimit } });
+const uploadSeal = multer({ storage: sealStorage, limits: { fileSize: fileSizeLimit } });
 
-module.exports = { uploadLogo, uploadAvatar, uploadReceipt };
+module.exports = { uploadLogo, uploadAvatar, uploadReceipt, uploadSignature, uploadSeal };

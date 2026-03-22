@@ -33,6 +33,14 @@ const companySchema = new mongoose.Schema(
             type: String, // Cloudinary URL
             default: null,
         },
+        signature: {
+            type: String, // Cloudinary URL
+            default: null,
+        },
+        seal: {
+            type: String, // Cloudinary URL
+            default: null,
+        },
         address: {
             street: { type: String, trim: true },
             city: { type: String, trim: true },
