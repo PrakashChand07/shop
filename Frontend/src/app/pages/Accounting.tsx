@@ -14,44 +14,118 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const profitLossData = [
-  { month: "Sep", income: 65000, expense: 45000, id: "sep-2025" },
-  { month: "Oct", income: 72000, expense: 48000, id: "oct-2025" },
-  { month: "Nov", income: 68000, expense: 46000, id: "nov-2025" },
-  { month: "Dec", income: 81000, expense: 52000, id: "dec-2025" },
-  { month: "Jan", income: 75000, expense: 49000, id: "jan-2026" },
-  { month: "Feb", income: 78000, expense: 51000, id: "feb-2026" },
-  { month: "Mar", income: 62000, expense: 42000, id: "mar-2026" },
-];
+import { useState, useEffect } from "react";
+import api from "../api/axios";
+
+// Helper components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { format } from "date-fns";
+import { SharedPagination } from "../components/SharedPagination";
 
 export function Accounting() {
-  const totalIncome = profitLossData.reduce((sum, item) => sum + item.income, 0);
-  const totalExpense = profitLossData.reduce((sum, item) => sum + item.expense, 0);
-  const netProfit = totalIncome - totalExpense;
-  const profitMargin = ((netProfit / totalIncome) * 100).toFixed(1);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  // Default to the current month (1-12)
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationData, setPaginationData] = useState({ total: 0, pages: 1, limit: 10 });
+
+  const fetchAccountingData = async () => {
+    try {
+      setLoading(true);
+      const params: any = { page: currentPage, limit: paginationData.limit };
+      if (selectedYear) params.year = selectedYear;
+      if (selectedMonth) params.month = selectedMonth;
+
+      const res = await api.get('/accounting', { params });
+      if (res.data?.success) {
+        setData(res.data.data);
+        if (res.data.pagination) {
+          setPaginationData(res.data.pagination);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching accounting data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Reset page to 1 when filters change
+    setCurrentPage(1);
+  }, [selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    fetchAccountingData();
+  }, [selectedYear, selectedMonth, currentPage]);
+
+  const totalIncome = data?.totalIncome || 0;
+  const totalExpense = data?.totalExpense || 0;
+  const totalGST = data?.totalGST || 0;
+  const netProfit = data?.netProfit || 0;
+  const totalSupplierExpense = data?.totalSupplierExpense || 0;
+  const totalSalaryExpense = data?.totalSalaryExpense || 0;
+  const totalManualExpense = data?.totalManualExpense || 0;
+  const profitLossData = data?.profitLossData || [];
+  const transactions = data?.recentTransactions || [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Accounting & Books
-        </h1>
-        <p className="text-gray-600">
-          Manage your accounts and financial records
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Accounting & Books
+          </h1>
+          <p className="text-gray-600">
+            Manage your accounts and financial records
+          </p>
+        </div>
+        
+        {/* Filters */}
+        <div className="flex items-center gap-3">
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[120px] bg-white">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {[2024, 2025, 2026, 2027].map(y => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[140px] bg-white">
+              <SelectValue placeholder="All Months" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <SelectItem key={m} value={m.toString()}>
+                  {new Date(0, m - 1).toLocaleString('default', { month: 'long' })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Financial Summary */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Income</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  ₹{totalIncome.toLocaleString("en-IN")}
+                  ₹{totalIncome.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
-                <p className="mt-1 text-sm text-green-600">Last 7 months</p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
                 <TrendingUp className="h-6 w-6 text-green-600" />
@@ -62,16 +136,45 @@ export function Accounting() {
 
         <Card>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm text-gray-600">Total Expenses</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  ₹{totalExpense.toLocaleString("en-IN")}
+                  ₹{totalExpense.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
-                <p className="mt-1 text-sm text-red-600">Last 7 months</p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
                 <TrendingDown className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 space-y-1">
+              <div className="flex justify-between">
+                <span>Supplier purchases:</span>
+                <span className="font-medium text-gray-700">₹{totalSupplierExpense.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Staff Salaries:</span>
+                <span className="font-medium text-gray-700">₹{totalSalaryExpense.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Other Expenses:</span>
+                <span className="font-medium text-gray-700">₹{totalManualExpense.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total GST Collected</p>
+                <p className="mt-2 text-2xl font-semibold text-gray-900">
+                  ₹{totalGST.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100">
+                <DollarSign className="h-6 w-6 text-purple-600" />
               </div>
             </div>
           </CardContent>
@@ -82,15 +185,12 @@ export function Accounting() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Net Profit</p>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  ₹{netProfit.toLocaleString("en-IN")}
-                </p>
-                <p className="mt-1 text-sm text-blue-600">
-                  {profitMargin}% margin
+                <p className={`mt-2 text-2xl font-semibold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ₹{netProfit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+              <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${netProfit >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                <DollarSign className={`h-6 w-6 ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
               </div>
             </div>
           </CardContent>
@@ -124,161 +224,71 @@ export function Accounting() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Add Income */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Record Income</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" defaultValue="2026-03-07" />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input type="text" placeholder="Sales from invoice..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <select className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-                <option>Sales Revenue</option>
-                <option>Service Income</option>
-                <option>Other Income</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <Input type="number" placeholder="0.00" />
-            </div>
-            <Button className="w-full bg-green-600 hover:bg-green-700">
-              Add Income
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Add Expense */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Record Expense</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" defaultValue="2026-03-07" />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input type="text" placeholder="Rent, utilities, supplies..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <select className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-                <option>Rent</option>
-                <option>Utilities</option>
-                <option>Salaries</option>
-                <option>Purchase</option>
-                <option>Marketing</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <Input type="number" placeholder="0.00" />
-            </div>
-            <Button className="w-full bg-red-600 hover:bg-red-700">
-              Add Expense
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Recent Transactions */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Accounting Entries</CardTitle>
+          <CardTitle>Accounting Entries</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="pb-3 text-left text-sm font-medium text-gray-600">
-                    Date
-                  </th>
-                  <th className="pb-3 text-left text-sm font-medium text-gray-600">
-                    Description
-                  </th>
-                  <th className="pb-3 text-left text-sm font-medium text-gray-600">
-                    Category
-                  </th>
-                  <th className="pb-3 text-right text-sm font-medium text-gray-600">
-                    Income
-                  </th>
-                  <th className="pb-3 text-right text-sm font-medium text-gray-600">
-                    Expense
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 text-sm text-gray-600">07/03/2026</td>
-                  <td className="py-3 text-sm text-gray-900">
-                    Sales - Invoice INV-2026-001
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">Sales Revenue</td>
-                  <td className="py-3 text-right text-sm font-medium text-green-600">
-                    +₹1,250
-                  </td>
-                  <td className="py-3 text-right text-sm text-gray-400">-</td>
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 text-sm text-gray-600">06/03/2026</td>
-                  <td className="py-3 text-sm text-gray-900">
-                    Electricity Bill Payment
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">Utilities</td>
-                  <td className="py-3 text-right text-sm text-gray-400">-</td>
-                  <td className="py-3 text-right text-sm font-medium text-red-600">
-                    -₹2,500
-                  </td>
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 text-sm text-gray-600">05/03/2026</td>
-                  <td className="py-3 text-sm text-gray-900">
-                    Purchase from MediCare Distributors
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">Purchase</td>
-                  <td className="py-3 text-right text-sm text-gray-400">-</td>
-                  <td className="py-3 text-right text-sm font-medium text-red-600">
-                    -₹15,000
-                  </td>
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 text-sm text-gray-600">05/03/2026</td>
-                  <td className="py-3 text-sm text-gray-900">
-                    Sales - Invoice INV-2026-007
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">Sales Revenue</td>
-                  <td className="py-3 text-right text-sm font-medium text-green-600">
-                    +₹920
-                  </td>
-                  <td className="py-3 text-right text-sm text-gray-400">-</td>
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-3 text-sm text-gray-600">01/03/2026</td>
-                  <td className="py-3 text-sm text-gray-900">
-                    Monthly Rent Payment
-                  </td>
-                  <td className="py-3 text-sm text-gray-600">Rent</td>
-                  <td className="py-3 text-right text-sm text-gray-400">-</td>
-                  <td className="py-3 text-right text-sm font-medium text-red-600">
-                    -₹20,000
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[500px]">
+              <p className="text-sm text-gray-500">Loading data...</p>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex items-center justify-center min-h-[500px]">
+              <p className="text-sm text-gray-500">No transactions found for the selected period.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Income</TableHead>
+                    <TableHead className="text-right">Expense</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((t: any, idx: number) => (
+                    <TableRow key={idx}>
+                      <TableCell className="text-gray-600">{format(new Date(t.date), "dd MMM yyyy")}</TableCell>
+                      <TableCell className="font-medium text-gray-900">{t.description}</TableCell>
+                      <TableCell className="text-gray-600">{t.category}</TableCell>
+                      <TableCell className="text-right text-green-600 font-medium">
+                        {t.income > 0 ? `+₹${t.income.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
+                      </TableCell>
+                      <TableCell className="text-right text-red-600 font-medium">
+                        {t.expense > 0 ? `-₹${t.expense.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  
+                  {/* Empty rows to maintain fixed height */}
+                  {Array.from({ length: Math.max(0, paginationData.limit - transactions.length) }).map((_, idx) => (
+                    <TableRow key={`empty-${idx}`}>
+                      <TableCell className="text-transparent">{"-"}</TableCell>
+                      <TableCell className="text-transparent">{"-"}</TableCell>
+                      <TableCell className="text-transparent">{"-"}</TableCell>
+                      <TableCell className="text-transparent">{"-"}</TableCell>
+                      <TableCell className="text-transparent">{"-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {paginationData.pages > 1 && (
+                <SharedPagination
+                  currentPage={currentPage}
+                  totalPages={paginationData.pages}
+                  onPageChange={(page) => setCurrentPage(page)}
+                  itemsPerPage={paginationData.limit}
+                  totalItems={paginationData.total}
+                />
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
