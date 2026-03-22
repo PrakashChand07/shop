@@ -2,7 +2,8 @@ const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
 const Customer = require('../models/Customer');
 const Expense = require('../models/Expense');
-const AuditLog = require('../models/AuditLog');
+const Staff = require('../models/Staff');
+const Product = require('../models/Product');
 
 // @desc    Dashboard summary stats
 // @route   GET /api/dashboard/stats
@@ -10,55 +11,109 @@ const AuditLog = require('../models/AuditLog');
 const getDashboardStats = async (req, res, next) => {
     try {
         const cId = req.companyId;
+        const { year, month } = req.query;
 
-        // Revenue this month
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        let dateFilter = {};
+        if (year) {
+            const isAllMonths = !month || month === 'all';
+            const startDate = new Date(year, isAllMonths ? 0 : parseInt(month) - 1, 1);
+            const endDate = new Date(year, isAllMonths ? 12 : parseInt(month), 0, 23, 59, 59);
+            dateFilter = {
+                createdAt: {
+                    $gte: startDate,
+                    $lte: endDate
+                }
+            };
+        } else {
+            // Default to current month if no filter
+            dateFilter = {
+                createdAt: {
+                    $gte: new Date(now.getFullYear(), now.getMonth(), 1)
+                }
+            };
+        }
 
+        const baseFilter = { company: cId, type: 'invoice' };
+
+        // Fetch aggregation data concurrently
         const [
-            totalRevenue,
-            monthRevenue,
-            invoiceStats,
+            todayInvoices,
+            filteredInvoices,
             totalCustomers,
-            totalExpense,
+            activeStaff,
+            totalProducts,
+            recentInvoices,
+            inventoryStats
         ] = await Promise.all([
-            // All-time revenue
-            Payment.aggregate([
-                { $match: { company: cId, status: 'completed' } },
-                { $group: { _id: null, total: { $sum: '$amount' } } },
-            ]),
-            // This month revenue
-            Payment.aggregate([
-                { $match: { company: cId, status: 'completed', paymentDate: { $gte: startOfMonth } } },
-                { $group: { _id: null, total: { $sum: '$amount' } } },
-            ]),
-            // Invoice status counts
-            Invoice.aggregate([
-                { $match: { company: cId, type: 'invoice' } },
-                { $group: { _id: '$status', count: { $sum: 1 }, total: { $sum: '$grandTotal' } } },
-            ]),
-            // Customer count
+            // Today Invoices
+            Invoice.find({ ...baseFilter, createdAt: { $gte: startOfToday } }),
+            // Filtered Invoices (based on month/year)
+            Invoice.find({ ...baseFilter, ...dateFilter }),
             Customer.countDocuments({ company: cId, status: 'active' }),
-            // Total expenses
-            Expense.aggregate([
-                { $match: { company: cId } },
-                { $group: { _id: null, total: { $sum: '$amount' } } },
-            ]),
+            Staff.countDocuments({ company: cId, isActive: true }),
+            Product.countDocuments({ company: cId }),
+            Invoice.find({ ...baseFilter, ...dateFilter }).sort({ createdAt: -1 }).limit(10).populate('customer', 'name companyName'),
+            Product.aggregate([
+                { $match: { company: cId, isActive: true } },
+                { $group: { _id: '$category', totalStock: { $sum: '$stock' } } }
+            ])
         ]);
 
-        // Format invoice stats
-        const invoiceFormatted = {};
-        invoiceStats.forEach((s) => { invoiceFormatted[s._id] = { count: s.count, total: s.total }; });
+        // Process Today
+        const salesStats = {
+            today: { gstSales: 0, nonGstSales: 0, totalTax: 0, gstInvoices: 0, nonGstInvoices: 0 },
+            filtered: { gstSales: 0, nonGstSales: 0, totalTax: 0, gstInvoices: 0, nonGstInvoices: 0 },
+            yearly: { gstSales: 0, nonGstSales: 0 } // Legacy, keep intact if needed
+        };
+
+        todayInvoices.forEach(inv => {
+            if (inv.totalTax > 0) {
+                salesStats.today.gstSales += inv.grandTotal;
+                salesStats.today.totalTax += inv.totalTax;
+                salesStats.today.gstInvoices += 1;
+            } else {
+                salesStats.today.nonGstSales += inv.grandTotal;
+                salesStats.today.nonGstInvoices += 1;
+            }
+        });
+
+        filteredInvoices.forEach(inv => {
+            if (inv.totalTax > 0) {
+                salesStats.filtered.gstSales += inv.grandTotal;
+                salesStats.filtered.totalTax += inv.totalTax;
+                salesStats.filtered.gstInvoices += 1;
+                salesStats.yearly.gstSales += inv.grandTotal; // Assuming yearly for now (should ideally query 1 year)
+            } else {
+                salesStats.filtered.nonGstSales += inv.grandTotal;
+                salesStats.filtered.nonGstInvoices += 1;
+                salesStats.yearly.nonGstSales += inv.grandTotal;
+            }
+        });
+
+        const inventoryData = inventoryStats.map(stat => ({
+            name: stat._id ? stat._id.trim() : 'Uncategorized',
+            value: stat.totalStock > 0 ? stat.totalStock : 1 // if no stock tracking, at least show product categories by fallback 1
+        }));
 
         res.status(200).json({
             success: true,
             data: {
-                totalRevenue: totalRevenue[0]?.total || 0,
-                monthRevenue: monthRevenue[0]?.total || 0,
-                totalExpense: totalExpense[0]?.total || 0,
-                netProfit: (totalRevenue[0]?.total || 0) - (totalExpense[0]?.total || 0),
+                salesStats,
                 totalCustomers,
-                invoices: invoiceFormatted,
+                activeStaff,
+                totalProducts,
+                inventoryData: inventoryData.length ? inventoryData : [{ name: "No products", value: 1 }],
+                recentTransactions: recentInvoices.map(inv => ({
+                    id: inv._id,
+                    invoiceNumber: inv.invoiceNumber,
+                    date: inv.createdAt,
+                    customerName: inv.customer?.companyName || inv.customer?.name || 'Unknown',
+                    amount: inv.grandTotal,
+                    status: inv.status
+                }))
             },
         });
     } catch (error) {
@@ -82,38 +137,65 @@ const getRecentActivity = async (req, res, next) => {
     }
 };
 
-// @desc    Monthly revenue chart data (last 12 months)
+// @desc    Monthly revenue chart data (last 6 months)
 // @route   GET /api/dashboard/revenue-chart
 // @access  Private
 const getRevenueChart = async (req, res, next) => {
     try {
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
-        twelveMonthsAgo.setDate(1);
-        twelveMonthsAgo.setHours(0, 0, 0, 0);
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
 
-        const data = await Payment.aggregate([
+        const data = await Invoice.aggregate([
             {
                 $match: {
                     company: req.companyId,
-                    status: 'completed',
-                    paymentDate: { $gte: twelveMonthsAgo },
+                    type: 'invoice',
+                    createdAt: { $gte: sixMonthsAgo },
                 },
             },
             {
                 $group: {
                     _id: {
-                        year: { $year: '$paymentDate' },
-                        month: { $month: '$paymentDate' },
+                        year: { $year: '$createdAt' },
+                        month: { $month: '$createdAt' },
                     },
-                    total: { $sum: '$amount' },
-                    count: { $sum: 1 },
+                    sales: { $sum: '$grandTotal' },
                 },
             },
             { $sort: { '_id.year': 1, '_id.month': 1 } },
         ]);
 
-        res.status(200).json({ success: true, data });
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        // Generate last 6 months explicitly to show 0 if no sales
+        const chart = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            chart.push({
+                monthName: months[d.getMonth()],
+                yearStr: d.getFullYear(),
+                sales: 0
+            });
+        }
+
+        // Overwrite 0s with aggregated sales data
+        data.forEach(d => {
+            const m = months[d._id.month - 1];
+            const matched = chart.find(c => c.monthName === m && c.yearStr === d._id.year);
+            if (matched) {
+                matched.sales = d.sales || 0;
+            }
+        });
+
+        const formattedData = chart.map(c => ({
+            month: c.monthName,
+            sales: c.sales
+        }));
+
+        res.status(200).json({ success: true, data: formattedData });
     } catch (error) {
         next(error);
     }

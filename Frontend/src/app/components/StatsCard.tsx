@@ -11,6 +11,7 @@ interface StatsCardProps {
   };
   iconBgColor?: string;
   iconColor?: string;
+  onClick?: () => void;
 }
 
 export function StatsCard({
@@ -20,9 +21,13 @@ export function StatsCard({
   trend,
   iconBgColor = "bg-blue-100",
   iconColor = "text-blue-600",
+  onClick,
 }: StatsCardProps) {
   return (
-    <Card>
+    <Card 
+      onClick={onClick} 
+      className={onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">

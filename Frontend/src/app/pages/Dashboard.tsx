@@ -26,25 +26,79 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { salesData, inventoryData, transactions, ewayBills, staff, salesStats } from "../lib/mockData";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { CreateInvoiceDialog } from "../components/CreateInvoiceDialog";
 import { AddProductDialog } from "../components/AddProductDialog";
 import { AddCustomerDialog } from "../components/AddCustomerDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import api from "../api/axios";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const activeEWayBills = ewayBills.filter((b) => b.status === "active").length;
-  const activeStaff = staff.filter((s) => s.status === "active").length;
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState<any>(null);
+  const [chartData, setChartData] = useState<any>([]);
+
+  // Filter states
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      const params: any = {};
+      if (selectedYear) params.year = selectedYear;
+      if (selectedMonth) params.month = selectedMonth;
+
+      const [statsRes, chartRes] = await Promise.all([
+        api.get('/dashboard/stats', { params }),
+        api.get('/dashboard/revenue-chart') // Chart always shows global trend
+      ]);
+      
+      if (statsRes.data?.success) {
+        setStatsData(statsRes.data.data);
+      }
+      if (chartRes.data?.success) {
+        setChartData(chartRes.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to load dashboard data", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [selectedYear, selectedMonth]);
+
+  if (loading || !statsData) {
+    return <div className="flex justify-center items-center h-[500px]">Loading Dashboard...</div>;
+  }
+
+  const {
+    salesStats,
+    totalCustomers,
+    activeStaff,
+    totalProducts,
+    recentTransactions
+  } = statsData;
+
+  const totalFilteredInvoices = salesStats.filtered.gstInvoices + salesStats.filtered.nonGstInvoices;
+  const totalFilteredSales = salesStats.filtered.gstSales + salesStats.filtered.nonGstSales;
+  const filteredGstPercent = totalFilteredSales > 0 ? (salesStats.filtered.gstSales / totalFilteredSales) * 100 : 0;
+  const filteredNonGstPercent = totalFilteredSales > 0 ? (salesStats.filtered.nonGstSales / totalFilteredSales) * 100 : 0;
+  const filteredTaxRate = salesStats.filtered.gstSales > 0 ? (salesStats.filtered.totalTax / salesStats.filtered.gstSales) * 100 : 0;
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">
@@ -52,11 +106,32 @@ export function Dashboard() {
           </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex gap-2">
-          <CreateInvoiceDialog />
-          <AddProductDialog />
-          <AddCustomerDialog />
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[110px] bg-white">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {[2024, 2025, 2026, 2027].map(y => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[140px] bg-white">
+              <SelectValue placeholder="All Months" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <SelectItem key={m} value={m.toString()}>
+                  {new Date(0, m - 1).toLocaleString('default', { month: 'long' })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -66,16 +141,16 @@ export function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-600" />
-              GST Sales (Today)
+              GST Sales
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
               <div className="text-2xl font-bold text-gray-900">
-                ₹{salesStats.today.gstSales.toLocaleString("en-IN")}
+                ₹{salesStats.filtered.gstSales.toLocaleString("en-IN")}
               </div>
               <p className="text-xs text-gray-500">
-                {salesStats.today.gstInvoices} invoices
+                {salesStats.filtered.gstInvoices} invoices
               </p>
             </div>
           </CardContent>
@@ -85,16 +160,16 @@ export function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <FileText className="h-4 w-4 text-green-600" />
-              Non-GST Sales (Today)
+              Non-GST Sales
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
               <div className="text-2xl font-bold text-gray-900">
-                ₹{salesStats.today.nonGstSales.toLocaleString("en-IN")}
+                ₹{salesStats.filtered.nonGstSales.toLocaleString("en-IN")}
               </div>
               <p className="text-xs text-gray-500">
-                {salesStats.today.nonGstInvoices} invoices
+                {salesStats.filtered.nonGstInvoices} invoices
               </p>
             </div>
           </CardContent>
@@ -104,13 +179,13 @@ export function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-purple-600" />
-              Tax Collected (Today)
+              Tax Collected
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
               <div className="text-2xl font-bold text-gray-900">
-                ₹{salesStats.today.totalTax.toLocaleString("en-IN")}
+                ₹{salesStats.filtered.totalTax.toLocaleString("en-IN")}
               </div>
               <p className="text-xs text-gray-500">
                 GST amount
@@ -123,28 +198,28 @@ export function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-orange-600" />
-              Total Sales (Today)
+              Total Sales
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
               <div className="text-2xl font-bold text-gray-900">
-                ₹{(salesStats.today.gstSales + salesStats.today.nonGstSales).toLocaleString("en-IN")}
+                ₹{(salesStats.filtered.gstSales + salesStats.filtered.nonGstSales).toLocaleString("en-IN")}
               </div>
               <p className="text-xs text-gray-500">
-                {salesStats.today.gstInvoices + salesStats.today.nonGstInvoices} total invoices
+                {salesStats.filtered.gstInvoices + salesStats.filtered.nonGstInvoices} total invoices
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Monthly GST vs Non-GST Overview */}
+      {/* Filtered GST vs Non-GST Overview */}
       <Card className="shadow-md">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-blue-600" />
-            Monthly Sales Breakdown (GST vs Non-GST)
+            Sales Breakdown (Selected Period)
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -154,22 +229,22 @@ export function Dashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">GST Sales</span>
                 <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                  {salesStats.monthly.gstInvoices} bills
+                  {salesStats.filtered.gstInvoices} bills
                 </Badge>
               </div>
               <div className="text-3xl font-bold text-blue-600">
-                ₹{salesStats.monthly.gstSales.toLocaleString("en-IN")}
+                ₹{salesStats.filtered.gstSales.toLocaleString("en-IN")}
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full" 
                   style={{ 
-                    width: `${(salesStats.monthly.gstSales / (salesStats.monthly.gstSales + salesStats.monthly.nonGstSales)) * 100}%` 
+                    width: `${filteredGstPercent}%` 
                   }}
                 ></div>
               </div>
               <p className="text-xs text-gray-500">
-                {((salesStats.monthly.gstSales / (salesStats.monthly.gstSales + salesStats.monthly.nonGstSales)) * 100).toFixed(1)}% of total
+                {filteredGstPercent.toFixed(1)}% of total
               </p>
             </div>
 
@@ -178,22 +253,22 @@ export function Dashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">Non-GST Sales</span>
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                  {salesStats.monthly.nonGstInvoices} bills
+                  {salesStats.filtered.nonGstInvoices} bills
                 </Badge>
               </div>
               <div className="text-3xl font-bold text-green-600">
-                ₹{salesStats.monthly.nonGstSales.toLocaleString("en-IN")}
+                ₹{salesStats.filtered.nonGstSales.toLocaleString("en-IN")}
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className="bg-green-600 h-2 rounded-full" 
                   style={{ 
-                    width: `${(salesStats.monthly.nonGstSales / (salesStats.monthly.gstSales + salesStats.monthly.nonGstSales)) * 100}%` 
+                    width: `${filteredNonGstPercent}%` 
                   }}
                 ></div>
               </div>
               <p className="text-xs text-gray-500">
-                {((salesStats.monthly.nonGstSales / (salesStats.monthly.gstSales + salesStats.monthly.nonGstSales)) * 100).toFixed(1)}% of total
+                {filteredNonGstPercent.toFixed(1)}% of total
               </p>
             </div>
 
@@ -206,35 +281,35 @@ export function Dashboard() {
                 </Badge>
               </div>
               <div className="text-3xl font-bold text-purple-600">
-                ₹{salesStats.monthly.totalTax.toLocaleString("en-IN")}
+                ₹{salesStats.filtered.totalTax.toLocaleString("en-IN")}
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className="bg-purple-600 h-2 rounded-full" 
                   style={{ 
-                    width: `${(salesStats.monthly.totalTax / salesStats.monthly.gstSales) * 100}%` 
+                    width: `${filteredTaxRate}%` 
                   }}
                 ></div>
               </div>
               <p className="text-xs text-gray-500">
-                {((salesStats.monthly.totalTax / salesStats.monthly.gstSales) * 100).toFixed(1)}% tax rate avg
+                {filteredTaxRate.toFixed(1)}% tax rate avg
               </p>
             </div>
           </div>
 
-          {/* Total Monthly Revenue */}
+          {/* Total Filtered Revenue */}
           <div className="mt-6 pt-6 border-t">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Monthly Revenue</p>
+                <p className="text-sm text-gray-600">Sales (Selected Period)</p>
                 <p className="text-4xl font-bold text-gray-900 mt-1">
-                  ₹{(salesStats.monthly.gstSales + salesStats.monthly.nonGstSales).toLocaleString("en-IN")}
+                  ₹{totalFilteredSales.toLocaleString("en-IN")}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-600">Total Invoices</p>
+                <p className="text-sm text-gray-600">Total Invoices generated</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">
-                  {salesStats.monthly.gstInvoices + salesStats.monthly.nonGstInvoices}
+                  {totalFilteredInvoices}
                 </p>
               </div>
             </div>
@@ -243,36 +318,14 @@ export function Dashboard() {
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        <StatsCard
-          title="Pending Payments"
-          value="₹1,22,000"
-          icon={DollarSign}
-          iconBgColor="bg-orange-100"
-          iconColor="text-orange-600"
-        />
-        <StatsCard
-          title="Active E-Way Bills"
-          value={activeEWayBills.toString()}
-          icon={FileBarChart}
-          iconBgColor="bg-cyan-100"
-          iconColor="text-cyan-600"
-          onClick={() => navigate("/eway-bills")}
-        />
-        <StatsCard
-          title="Low Stock Alerts"
-          value="2"
-          icon={AlertTriangle}
-          iconBgColor="bg-red-100"
-          iconColor="text-red-600"
-        />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatsCard
           title="Total Customers"
-          value="248"
+          value={totalCustomers.toString()}
           icon={Users}
-          trend={{ value: "12 new this week", isPositive: true }}
           iconBgColor="bg-purple-100"
           iconColor="text-purple-600"
+          onClick={() => navigate("/customers")}
         />
         <StatsCard
           title="Active Staff"
@@ -283,22 +336,23 @@ export function Dashboard() {
           onClick={() => navigate("/staff")}
         />
         <StatsCard
-          title="Products"
-          value="234"
+          title="Total Products"
+          value={totalProducts.toString()}
           icon={Package}
           iconBgColor="bg-indigo-100"
           iconColor="text-indigo-600"
+          onClick={() => navigate("/products")}
         />
         <StatsCard
-          title="Yearly GST Sales"
-          value={`₹${(salesStats.yearly.gstSales / 100000).toFixed(1)}L`}
-          icon={TrendingUp}
+          title="GST Bills"
+          value={salesStats.filtered.gstInvoices.toString()}
+          icon={FileText}
           iconBgColor="bg-blue-100"
           iconColor="text-blue-600"
         />
         <StatsCard
-          title="Yearly Non-GST"
-          value={`₹${(salesStats.yearly.nonGstSales / 100000).toFixed(1)}L`}
+          title="Non-GST Bills"
+          value={salesStats.filtered.nonGstInvoices.toString()}
           icon={FileText}
           iconBgColor="bg-green-100"
           iconColor="text-green-600"
@@ -310,41 +364,44 @@ export function Dashboard() {
         {/* Sales Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Sales Overview</CardTitle>
+            <CardTitle>Sales Trend Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300} key="sales-container">
-              <LineChart data={salesData} id="sales-chart">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" id="sales-grid" />
-                <XAxis
-                  dataKey="month"
-                  stroke="#6b7280"
-                  style={{ fontSize: "12px" }}
-                  id="sales-xaxis"
-                />
-                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} id="sales-yaxis" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                  }}
-                  id="sales-tooltip"
-                />
-                <Legend id="sales-legend" />
-                <Line
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: "#3b82f6", r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="Sales (₹)"
-                  key="sales-line"
-                  id="sales-line-main"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {chartData && chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300} key="sales-container">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="month"
+                    stroke="#6b7280"
+                    style={{ fontSize: "12px" }}
+                  />
+                  <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="sales"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: "#3b82f6", r: 4 }}
+                    activeDot={{ r: 6 }}
+                    name="Monthly Sales (₹)"
+                    key="sales-line"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
+                No sufficient sales data to show trend graph
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -354,31 +411,43 @@ export function Dashboard() {
             <CardTitle>Inventory by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300} key="inventory-container">
-              <PieChart id="inventory-chart">
-                <Pie
-                  data={inventoryData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                  id="inventory-pie"
-                >
-                  {inventoryData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${entry.id}-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip id="inventory-tooltip" />
-              </PieChart>
-            </ResponsiveContainer>
+            {statsData.inventoryData && statsData.inventoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300} key="inventory-container">
+                <PieChart>
+                  <Pie
+                    data={statsData.inventoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) =>
+                      percent > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : name
+                    }
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {statsData.inventoryData.map((entry: any, index: number) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value, name) => [value, "Items in Stock"]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[300px] items-center justify-center text-gray-500 text-sm">
+                No inventory data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -411,43 +480,51 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => (
-                  <tr key={transaction.id} className="border-b border-gray-100">
-                    <td className="py-3 text-sm text-gray-900">
-                      {transaction.invoiceNumber}
-                    </td>
-                    <td className="py-3 text-sm text-gray-600">
-                      {new Date(transaction.date).toLocaleDateString("en-IN")}
-                    </td>
-                    <td className="py-3 text-sm text-gray-900">
-                      {transaction.customerName}
-                    </td>
-                    <td className="py-3 text-right text-sm font-medium text-gray-900">
-                      ₹{transaction.amount.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3 text-center">
-                      <Badge
-                        variant={
-                          transaction.status === "paid"
-                            ? "default"
-                            : transaction.status === "pending"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                        className={
-                          transaction.status === "paid"
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : transaction.status === "pending"
-                            ? "bg-red-100 text-red-700 hover:bg-red-200"
-                            : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                        }
-                      >
-                        {transaction.status.charAt(0).toUpperCase() +
-                          transaction.status.slice(1)}
-                      </Badge>
+                {recentTransactions.length > 0 ? (
+                  recentTransactions.map((transaction: any) => (
+                    <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/invoices/${transaction.id}`)}>
+                      <td className="py-3 text-sm text-gray-900 font-medium px-2">
+                        {transaction.invoiceNumber}
+                      </td>
+                      <td className="py-3 text-sm text-gray-600">
+                        {new Date(transaction.date).toLocaleDateString("en-IN")}
+                      </td>
+                      <td className="py-3 text-sm text-gray-900">
+                        {transaction.customerName}
+                      </td>
+                      <td className="py-3 text-right text-sm font-medium text-gray-900">
+                        ₹{transaction.amount.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-3 text-center">
+                        <Badge
+                          variant={
+                            transaction.status === "paid"
+                              ? "default"
+                              : transaction.status === "pending"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                          className={
+                            transaction.status === "paid"
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : transaction.status === "pending"
+                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                              : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                          }
+                        >
+                          {transaction.status.charAt(0).toUpperCase() +
+                            transaction.status.slice(1)}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="text-center py-6 text-sm text-gray-500">
+                      No recent invoices found.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
