@@ -20,11 +20,21 @@ router.post(
 // GET /api/auth/me
 router.get('/me', protect, getMe);
 
+// Wrapper to handle Multer/Cloudinary errors gracefully
+const handleUpload = (uploadMiddleware) => (req, res, next) => {
+    uploadMiddleware(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ success: false, message: err.message || 'Error occurred during file upload.' });
+        }
+        next();
+    });
+};
+
 // PUT /api/auth/profile
 router.put('/profile', protect, updateProfile);
 
 // POST /api/auth/avatar
-router.post('/avatar', protect, multerAvatar.single('avatar'), uploadAvatar);
+router.post('/avatar', protect, handleUpload(multerAvatar.single('avatar')), uploadAvatar);
 
 // PUT /api/auth/change-password
 router.put(

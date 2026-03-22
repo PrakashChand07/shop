@@ -9,6 +9,9 @@ import {
 import { Button } from "./ui/button";
 import { Printer, Download, Share2, MessageCircle, X, Check } from "lucide-react";
 import { Logo } from "./Logo";
+import { useAuth } from "../context/AuthContext";
+import { useEffect } from "react";
+import api from "../api/axios";
 
 interface InvoiceItem {
   id: string;
@@ -48,6 +51,23 @@ export function InvoicePreviewDialog({
   gstAmount,
   total,
 }: InvoicePreviewDialogProps) {
+  const { user } = useAuth();
+  
+  // Fetch latest company data dynamically instead of relying on stale AuthContext
+  const [company, setCompany] = useState<any>(user?.company || null);
+  
+  useEffect(() => {
+    if (open) {
+      api.get('/company/profile')
+        .then(res => {
+          if (res.data?.success) {
+            setCompany(res.data.data);
+          }
+        })
+        .catch(err => console.error("Failed to load company profile", err));
+    }
+  }, [open]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -58,7 +78,8 @@ export function InvoicePreviewDialog({
   };
 
   const handleWhatsApp = () => {
-    const message = `Invoice #${invoiceNumber}\n\nDear ${customerName},\n\nYour invoice for ₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })} has been generated.\n\nThank you for your business!\n- Anjum Footwear`;
+    const companyName = company?.name || "Anjum Footwear";
+    const message = `Invoice #${invoiceNumber}\n\nDear ${customerName},\n\nYour invoice for ₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2 })} has been generated.\n\nThank you for your business!\n- ${companyName}`;
     const phone = customerPhone?.replace(/[^0-9]/g, "");
     const whatsappUrl = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
@@ -150,14 +171,26 @@ export function InvoicePreviewDialog({
               {/* Header */}
               <div className="mb-8 flex flex-col lg:flex-row items-start justify-between border-b-2 border-blue-600 pb-6 gap-4">
                 <div className="space-y-3">
-                  <Logo size="lg" />
+                  {company?.logo ? (
+                    <img src={company.logo} alt="Company Logo" className="h-20 object-contain" />
+                  ) : (
+                    <Logo size="lg" />
+                  )}
                   <div className="text-sm text-gray-600">
-                    <p className="font-semibold text-gray-900">Anjum Footwear</p>
-                    <p>123 Fashion Street, Mumbai</p>
-                    <p>Maharashtra 400001, India</p>
-                    <p className="mt-1">Phone: +91 98765 43210</p>
-                    <p>Email: info@anjumfootwear.com</p>
-                    <p className="mt-1">GSTIN: 27AABCA1234F1Z5</p>
+                    <p className="font-semibold text-gray-900">{company?.name}</p>
+                    {company?.address?.street && <p>{company.address.street}</p>}
+                    {(company?.address?.city || company?.address?.state || company?.address?.pincode) && (
+                      <p>
+                        {[company.address.city, company.address.state, company.address.pincode]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    )}
+                    {company?.address?.country && <p>{company.address.country}</p>}
+                    
+                    {company?.phone && <p className="mt-1">Phone: {company.phone}</p>}
+                    {company?.email && <p>Email: {company.email}</p>}
+                    {company?.gstin && <p className="mt-1">GSTIN: {company.gstin}</p>}
                   </div>
                 </div>
                 <div className="text-left lg:text-right">
@@ -277,11 +310,24 @@ export function InvoicePreviewDialog({
                 </p>
               </div>
 
-              {/* Authorized Signature */}
-              <div className="mt-8 flex justify-end">
-                <div className="text-right">
-                  <div className="mb-16"></div>
-                  <div className="border-t border-gray-400 pt-2 text-sm text-gray-700 font-medium">
+              {/* Authorized Signature & Seal */}
+              <div className="mt-8 flex justify-end gap-6">
+                {company?.seal && (
+                  <div className="text-center">
+                    <img src={company.seal} alt="Company Seal" className="h-24 w-24 object-contain mx-auto mb-2 opacity-80 mix-blend-multiply" />
+                    <div className="pt-2 text-sm text-gray-700 font-medium">
+                      Company Seal
+                    </div>
+                  </div>
+                )}
+                
+                <div className="text-right flex flex-col items-center justify-end">
+                  {company?.signature ? (
+                    <img src={company.signature} alt="Signature" className="h-16 object-contain mb-2" />
+                  ) : (
+                    <div className="mb-16"></div>
+                  )}
+                  <div className="border-t border-gray-400 pt-2 text-sm text-gray-700 font-medium w-48 text-center">
                     Authorized Signature
                   </div>
                 </div>

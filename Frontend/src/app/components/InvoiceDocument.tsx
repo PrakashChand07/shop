@@ -1,9 +1,11 @@
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
 import { Printer, Download, Send, FileBarChart } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EWayBillDialog } from "./EWayBillDialog";
 import { Alert, AlertDescription } from "./ui/alert";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
 
 interface InvoiceItem {
   id: string;
@@ -48,6 +50,21 @@ export function InvoiceDocument({
   onDownload,
   onSend,
 }: InvoiceDocumentProps) {
+  const { user } = useAuth();
+  
+  // Fetch latest company data dynamically
+  const [company, setCompany] = useState<any>(user?.company || null);
+  
+  useEffect(() => {
+    api.get('/company/profile')
+      .then(res => {
+        if (res.data?.success) {
+          setCompany(res.data.data);
+        }
+      })
+      .catch(err => console.error("Failed to load company profile", err));
+  }, []);
+
   const [showEWayBillDialog, setShowEWayBillDialog] = useState(false);
   const [generatedEWayBill, setGeneratedEWayBill] = useState<string | null>(null);
 
@@ -124,13 +141,24 @@ export function InvoiceDocument({
         {/* Header */}
         <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start justify-between border-b border-gray-300 pb-4 sm:pb-6 gap-4 sm:gap-0">
           <div className="space-y-2 sm:space-y-3 w-full sm:w-auto">
-            <Logo size="lg" />
+            {company?.logo ? (
+              <img src={company.logo} alt="Company Logo" className="h-16 sm:h-20 object-contain" />
+            ) : null}
             <div className="text-xs sm:text-sm text-gray-600">
-              <p className="font-semibold">Anjum Footwear</p>
-              <p>123, Market Road, Mumbai - 400001</p>
-              <p>Phone: +91 98765 43210</p>
-              <p className="hidden sm:block">Email: info@anjumfootwear.com</p>
-              <p>GSTIN: 27AABCA1234F1Z5</p>
+              <p className="font-semibold text-gray-900">{company?.name}</p>
+              {company?.address?.street && <p>{company.address.street}</p>}
+              {(company?.address?.city || company?.address?.state || company?.address?.pincode) && (
+                <p>
+                  {[company.address.city, company.address.state, company.address.pincode]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              )}
+              {company?.address?.country && <p>{company.address.country}</p>}
+              
+              {company?.phone && <p className="mt-1">Phone: {company.phone}</p>}
+              {company?.email && <p className="hidden sm:block">Email: {company.email}</p>}
+              {company?.gstin && <p className="mt-1">GSTIN: {company.gstin}</p>}
             </div>
           </div>
           <div className="text-left sm:text-right w-full sm:w-auto">
@@ -274,11 +302,24 @@ export function InvoiceDocument({
           </p>
         </div>
 
-        {/* Authorized Signature */}
-        <div className="mt-6 sm:mt-8 flex justify-end">
-          <div className="text-right">
-            <div className="mb-8 sm:mb-12"></div>
-            <div className="border-t border-gray-400 pt-2 text-xs sm:text-sm text-gray-700">
+        {/* Authorized Signature & Seal */}
+        <div className="mt-6 sm:mt-8 flex justify-end gap-6">
+          {company?.seal && (
+            <div className="text-center">
+              <img src={company.seal} alt="Company Seal" className="h-16 sm:h-20 w-16 sm:w-20 object-contain mx-auto mb-2 opacity-80 mix-blend-multiply" />
+              <div className="pt-2 text-xs sm:text-sm text-gray-700 font-medium">
+                Company Seal
+              </div>
+            </div>
+          )}
+          
+          <div className="text-right flex flex-col items-center justify-end">
+            {company?.signature ? (
+              <img src={company.signature} alt="Signature" className="h-12 sm:h-16 object-contain mb-2" />
+            ) : (
+              <div className="mb-8 sm:mb-12"></div>
+            )}
+            <div className="border-t border-gray-400 pt-2 text-xs sm:text-sm text-gray-700 font-medium w-40 text-center">
               Authorized Signature
             </div>
           </div>

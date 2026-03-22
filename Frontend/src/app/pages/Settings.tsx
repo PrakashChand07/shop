@@ -130,8 +130,11 @@ export function Settings() {
       if (res.data?.success) {
         setCompanyData(prev => ({ ...prev, [type]: res.data.data[type] }));
       }
-    } catch (error) {
-      toast.error(`Failed to upload ${type}.`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || `Failed to upload ${type}.`);
+    } finally {
+      // Clear the input value so the same file can be selected again if needed
+      e.target.value = '';
     }
   };
 
@@ -260,8 +263,9 @@ export function Settings() {
                  ) : (
                     <div className="relative border-2 border-dashed border-gray-300 rounded-md p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors">
                        <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-                       <span className="text-sm text-gray-500">Upload Logo</span>
-                       <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
+                       <span className="text-sm text-gray-700 font-medium d-block">Upload Logo</span>
+                       <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP, SVG</p>
+                       <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".jpg,.jpeg,.png,.webp,.svg" onChange={(e) => handleImageUpload(e, 'logo')} />
                     </div>
                  )}
               </div>
@@ -281,8 +285,9 @@ export function Settings() {
                  ) : (
                    <div className="relative border-2 border-dashed border-gray-300 rounded-md p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors">
                       <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-                      <span className="text-sm text-gray-500">Upload Signature</span>
-                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload(e, 'signature')} />
+                      <span className="text-sm text-gray-700 font-medium d-block">Upload Signature</span>
+                      <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP, SVG</p>
+                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".jpg,.jpeg,.png,.webp,.svg" onChange={(e) => handleImageUpload(e, 'signature')} />
                    </div>
                  )}
               </div>
@@ -302,8 +307,9 @@ export function Settings() {
                  ) : (
                    <div className="relative border-2 border-dashed border-gray-300 rounded-md p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors">
                       <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-                      <span className="text-sm text-gray-500">Upload Seal</span>
-                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload(e, 'seal')} />
+                      <span className="text-sm text-gray-700 font-medium d-block">Upload Seal</span>
+                      <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP, SVG</p>
+                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".jpg,.jpeg,.png,.webp,.svg" onChange={(e) => handleImageUpload(e, 'seal')} />
                    </div>
                  )}
               </div>

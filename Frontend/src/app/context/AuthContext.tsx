@@ -8,8 +8,25 @@ interface User {
   role: string;
   company?: {
     id: string;
+    _id: string;
     name: string;
     industryType: 'pharmacy' | 'footwear';
+    email?: string;
+    phone?: string;
+    address?: {
+      street: string;
+      city: string;
+      state: string;
+      pincode: string;
+      country: string;
+    };
+    gstin?: string;
+    panNumber?: string;
+    logo?: string;
+    signature?: string;
+    seal?: string;
+    currency?: string;
+    invoicePrefix?: string;
   };
 }
 

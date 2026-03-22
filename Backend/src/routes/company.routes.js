@@ -41,14 +41,24 @@ router.route('/profile')
     .get(getCompanyProfile)
     .put(authorize('admin'), updateCompanyProfile);
 
+// Wrapper to handle Multer/Cloudinary errors gracefully
+const handleUpload = (uploadMiddleware) => (req, res, next) => {
+    uploadMiddleware(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ success: false, message: err.message || 'Error occurred during file upload.' });
+        }
+        next();
+    });
+};
+
 // POST /api/company/logo
-router.post('/logo', authorize('admin'), multerLogo.single('logo'), uploadLogo);
+router.post('/logo', authorize('admin'), handleUpload(multerLogo.single('logo')), uploadLogo);
 
 // POST /api/company/signature
-router.post('/signature', authorize('admin'), multerSignature.single('signature'), uploadSignature);
+router.post('/signature', authorize('admin'), handleUpload(multerSignature.single('signature')), uploadSignature);
 
 // POST /api/company/seal
-router.post('/seal', authorize('admin'), multerSeal.single('seal'), uploadSeal);
+router.post('/seal', authorize('admin'), handleUpload(multerSeal.single('seal')), uploadSeal);
 
 // DELETE /api/company/:type (logo or signature or seal)
 router.delete('/:type', authorize('admin'), deleteLogoOrSignature);
