@@ -1,27 +1,21 @@
-import { useState, useEffect, FormEvent } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { Input } from "@/app/components/ui/input";
+import { ActionButton } from "@/app/components/common/ActionButton";
+import { Badge } from "@/app/components/ui/badge";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
-import { Label } from "../components/ui/label";
-import { Switch } from "../components/ui/switch";
-import { SharedPagination } from "../components/SharedPagination";
-import api from "../api/axios";
+} from "@/app/components/ui/dialog";
+import { SharedPagination } from "@/app/components/SharedPagination";
 import { toast } from "sonner";
-
-interface Category {
-  _id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-}
+import { Category, CategoryFormData } from "./types";
+import { fetchCategoriesApi, createCategoryApi, updateCategoryApi, deleteCategoryApi } from "./api";
+import { CategoryForm } from "./components/CategoryForm";
+import { Button } from "@/app/components/ui/button";
 
 export function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -33,28 +27,27 @@ export function Categories() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    isActive: true,
-  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get(`/categories?search=${searchTerm}&page=${currentPage}&limit=10`);
-      if (response.data.success) {
-        setCategories(response.data.data);
-        if (response.data.pagination) {
-          setTotalPages(response.data.pagination.pages || 1);
-          setTotalItems(response.data.pagination.total || 0);
+      setIsLoading(true);
+      const data = await fetchCategoriesApi(searchTerm, currentPage);
+      if (data.success) {
+        setCategories(data.data);
+        if (data.pagination) {
+          setTotalPages(data.pagination.pages || 1);
+          setTotalItems(data.pagination.total || 0);
         } else {
-          setTotalItems(response.data.data.length);
+          setTotalItems(data.data.length);
         }
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
       toast.error("Failed to fetch categories.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,30 +58,20 @@ export function Categories() {
   const handleOpenDialog = (category?: Category) => {
     if (category) {
       setEditingCategory(category);
-      setFormData({
-        name: category.name,
-        description: category.description || "",
-        isActive: category.isActive,
-      });
     } else {
       setEditingCategory(null);
-      setFormData({
-        name: "",
-        description: "",
-        isActive: true,
-      });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (formData: CategoryFormData) => {
+    setIsSubmitting(true);
     try {
       if (editingCategory) {
-        await api.put(`/categories/${editingCategory._id}`, formData);
+        await updateCategoryApi(editingCategory._id, formData);
         toast.success("Category updated successfully");
       } else {
-        await api.post('/categories', formData);
+        await createCategoryApi(formData);
         toast.success("Category created successfully");
       }
       setIsDialogOpen(false);
@@ -96,13 +79,15 @@ export function Categories() {
     } catch (error) {
       console.error("Error saving category:", error);
       toast.error("Failed to save category.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this category?")) {
       try {
-        await api.delete(`/categories/${id}`);
+        await deleteCategoryApi(id);
         toast.success("Category deleted");
         fetchCategories();
       } catch (error) {
@@ -111,9 +96,6 @@ export function Categories() {
       }
     }
   };
-
-  // Optional frontend fallback filter if backend search is limited
-  const filteredCategories = categories;
 
   return (
     <div className="space-y-6">
@@ -124,10 +106,10 @@ export function Categories() {
           </h1>
           <p className="text-gray-600">Manage categories for your inventory</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+        <ActionButton onClick={() => handleOpenDialog()} className="gap-2 bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4" />
           Add Category
-        </Button>
+        </ActionButton>
       </div>
 
       <Card>
@@ -138,7 +120,7 @@ export function Categories() {
               type="text"
               placeholder="Search categories..."
               value={searchTerm}
-              onChange={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
@@ -164,8 +146,14 @@ export function Categories() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCategories.length > 0 ? (
-                  filteredCategories.map((category) => (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-sm text-gray-500">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : categories.length > 0 ? (
+                  categories.map((category) => (
                     <tr key={category._id} className="border-b border-gray-100">
                       <td className="py-3 text-sm font-medium text-gray-900">
                         {category.name}
@@ -233,50 +221,12 @@ export function Categories() {
               {editingCategory ? "Edit Category" : "Add New Category"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Category Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                placeholder="e.g. Men's Footwear"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="A brief description of this category"
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-2">
-              <div className="space-y-0.5">
-                <Label>Active Status</Label>
-                <div className="text-sm text-gray-500">
-                  Inactive categories won't appear as options in products
-                </div>
-              </div>
-              <Switch
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                {editingCategory ? "Save Changes" : "Create Category"}
-              </Button>
-            </div>
-          </form>
+          <CategoryForm 
+            initialData={editingCategory}
+            onSubmit={handleSubmit}
+            onCancel={() => setIsDialogOpen(false)}
+            isLoading={isSubmitting}
+          />
         </DialogContent>
       </Dialog>
     </div>

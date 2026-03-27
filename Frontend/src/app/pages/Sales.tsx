@@ -32,7 +32,6 @@ import { Separator } from "../components/ui/separator";
 import { useNavigate } from "react-router";
 import { InvoiceDocument } from "../components/InvoiceDocument";
 import { QuickInvoice } from "../components/QuickInvoice";
-import { CreateInvoiceDialog } from "../components/CreateInvoiceDialog";
 import { POSInterface } from "../components/POSInterface";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { EWayBillDialog } from "../components/EWayBillDialog";
@@ -357,7 +356,6 @@ export function Sales() {
           <h1 className="text-2xl font-semibold text-gray-900">Sales / Billing</h1>
           <p className="text-gray-600">Create new invoice and manage sales</p>
         </div>
-        <CreateInvoiceDialog />
       </div>
 
       {/* Tabs for Different Views */}
