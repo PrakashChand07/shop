@@ -14,13 +14,15 @@ import { SharedPagination } from "@/app/components/SharedPagination";
 import { toast } from "sonner";
 import { Category, CategoryFormData } from "./types";
 import { fetchCategoriesApi, createCategoryApi, updateCategoryApi, deleteCategoryApi } from "./api";
-import { CategoryForm } from "./components/CategoryForm";
+import { CreateCategoryDialog } from "./components/CreateCategoryDialog";
+import { EditCategoryDialog } from "./components/EditCategoryDialog";
+import { DeleteCategoryDialog } from "./components/DeleteCategoryDialog";
 import { Button } from "@/app/components/ui/button";
 
 export function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,6 +31,8 @@ export function Categories() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -55,45 +59,50 @@ export function Categories() {
     fetchCategories();
   }, [searchTerm, currentPage]);
 
-  const handleOpenDialog = (category?: Category) => {
-    if (category) {
-      setEditingCategory(category);
-    } else {
-      setEditingCategory(null);
-    }
-    setIsDialogOpen(true);
-  };
-
-  const handleSubmit = async (formData: CategoryFormData) => {
+  const handleEditSubmit = async (formData: CategoryFormData) => {
+    if (!editingCategory) return;
     setIsSubmitting(true);
     try {
-      if (editingCategory) {
-        await updateCategoryApi(editingCategory._id, formData);
-        toast.success("Category updated successfully");
-      } else {
-        await createCategoryApi(formData);
-        toast.success("Category created successfully");
-      }
-      setIsDialogOpen(false);
+      await updateCategoryApi(editingCategory._id, formData);
+      toast.success("Category updated successfully");
+      setEditingCategory(null);
       fetchCategories();
     } catch (error) {
-      console.error("Error saving category:", error);
-      toast.error("Failed to save category.");
+      console.error("Error updating category:", error);
+      toast.error("Failed to update category.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this category?")) {
-      try {
-        await deleteCategoryApi(id);
-        toast.success("Category deleted");
-        fetchCategories();
-      } catch (error) {
-        console.error("Error deleting category:", error);
-        toast.error("Failed to delete category.");
-      }
+  const handleCreateSubmit = async (formData: CategoryFormData) => {
+    setIsSubmitting(true);
+    try {
+      await createCategoryApi(formData);
+      toast.success("Category created successfully");
+      setIsCreateDialogOpen(false);
+      fetchCategories();
+    } catch (error) {
+      console.error("Error creating category:", error);
+      toast.error("Failed to create category.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!categoryToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteCategoryApi(categoryToDelete._id);
+      toast.success("Category deleted");
+      fetchCategories();
+      setCategoryToDelete(null);
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast.error("Failed to delete category.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -106,7 +115,7 @@ export function Categories() {
           </h1>
           <p className="text-gray-600">Manage categories for your inventory</p>
         </div>
-        <ActionButton onClick={() => handleOpenDialog()} className="gap-2 bg-blue-600 hover:bg-blue-700">
+        <ActionButton onClick={() => setIsCreateDialogOpen(true)} className="gap-2 bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4" />
           Add Category
         </ActionButton>
@@ -178,14 +187,14 @@ export function Categories() {
                           <Button 
                             size="sm" 
                             variant="ghost" 
-                            onClick={() => handleOpenDialog(category)}
+                            onClick={() => setEditingCategory(category)}
                           >
                             <Edit className="h-4 w-4 text-gray-500 hover:text-blue-600" />
                           </Button>
                           <Button 
                             size="sm" 
                             variant="ghost" 
-                            onClick={() => handleDelete(category._id)}
+                            onClick={() => setCategoryToDelete(category)}
                           >
                             <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-600" />
                           </Button>
@@ -214,21 +223,28 @@ export function Categories() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? "Edit Category" : "Add New Category"}
-            </DialogTitle>
-          </DialogHeader>
-          <CategoryForm 
-            initialData={editingCategory}
-            onSubmit={handleSubmit}
-            onCancel={() => setIsDialogOpen(false)}
-            isLoading={isSubmitting}
-          />
-        </DialogContent>
-      </Dialog>
+      <CreateCategoryDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onSubmit={handleCreateSubmit}
+        isLoading={isSubmitting}
+      />
+
+      <EditCategoryDialog
+        isOpen={!!editingCategory}
+        onClose={() => setEditingCategory(null)}
+        onSubmit={handleEditSubmit}
+        isLoading={isSubmitting}
+        category={editingCategory}
+      />
+
+      <DeleteCategoryDialog
+        isOpen={!!categoryToDelete}
+        onClose={() => setCategoryToDelete(null)}
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+        category={categoryToDelete}
+      />
     </div>
   );
 }
