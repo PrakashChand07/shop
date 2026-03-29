@@ -24,30 +24,35 @@ import {
   FileBarChart,
   Truck,
   UserCog,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../context/AuthContext";
 import { useIndustry } from "../context/IndustryContext";
+import { ModuleName } from "../common/enums/module.enum";
 
 const navigation = [
-  { name: "Dashboard", path: "/", icon: LayoutDashboard },
-  { name: "Sales", path: "/sales", icon: ShoppingCart },
-  { name: "Invoices", path: "/invoices", icon: FileText },
-  { name: "Purchase", path: "/purchase", icon: Package },
-  { name: "Inventory", path: "/inventory", icon: ShoppingBag },
-  { name: "Categories", path: "/categories", icon: Tags },
-  { name: "Customers", path: "/customers", icon: Users },
-  { name: "Suppliers", path: "/suppliers", icon: Building2 },
-  { name: "Staff", path: "/staff", icon: UserCog },
-  { name: "Accounting", path: "/accounting", icon: Calculator },
-  { name: "GST Reports", path: "/gst-reports", icon: FileText },
-  { name: "E-Way Bills", path: "/eway-bills", icon: FileBarChart },
-  { name: "WhatsApp Automation", path: "/whatsapp", icon: MessageSquare },
-  { name: "Payments", path: "/payments", icon: CreditCard },
-  { name: "Reports", path: "/reports", icon: BarChart3 },
-  { name: "Settings", path: "/settings", icon: SettingsIcon },
+  { name: "Dashboard", path: "/", icon: LayoutDashboard, requiredModule: ModuleName.DASHBOARD },
+  { name: "Sales", path: "/sales", icon: ShoppingCart, requiredModule: ModuleName.SALES },
+  { name: "Invoices", path: "/invoices", icon: FileText, requiredModule: ModuleName.INVOICE },
+  { name: "Purchase", path: "/purchase", icon: Package, requiredModule: ModuleName.PURCHASE },
+  { name: "Inventory", path: "/inventory", icon: ShoppingBag, requiredModule: ModuleName.INVENTORY },
+  { name: "Categories", path: "/categories", icon: Tags, requiredModule: ModuleName.CATEGORY },
+  { name: "Customers", path: "/customers", icon: Users, requiredModule: ModuleName.CUSTOMER },
+  { name: "Suppliers", path: "/suppliers", icon: Building2, requiredModule: ModuleName.SUPPLIER },
+  { name: "Staff", path: "/staff", icon: UserCog, requiredModule: ModuleName.STAFF },
+  { name: "Roles", path: "/roles", icon: KeyRound, requiredModule: ModuleName.ROLE },
+  { name: "Permissions", path: "/permissions", icon: ShieldCheck, requiredModule: ModuleName.ROLE },
+  { name: "Accounting", path: "/accounting", icon: Calculator, requiredModule: ModuleName.ACCOUNTING },
+  { name: "GST Reports", path: "/gst-reports", icon: FileText, requiredModule: ModuleName.GST_REPORT },
+  { name: "E-Way Bills", path: "/eway-bills", icon: FileBarChart, requiredModule: ModuleName.EWAY_BILL },
+  { name: "WhatsApp Automation", path: "/whatsapp", icon: MessageSquare, requiredModule: ModuleName.WHATSAPP },
+  { name: "Payments", path: "/payments", icon: CreditCard, requiredModule: ModuleName.PAYMENT },
+  { name: "Reports", path: "/reports", icon: BarChart3, requiredModule: ModuleName.REPORT },
+  { name: "Settings", path: "/settings", icon: SettingsIcon, requiredModule: ModuleName.SETTING },
 ];
 
 export function MainLayout() {
@@ -74,6 +79,38 @@ export function MainLayout() {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
             {navigation.map((item) => {
+              // ─── PERMISSION CHECK ───
+              if (user?.role === "staff") {
+                // If it's a staff member, we must find a permission record, or else deny access by default
+                let perm = user.permissions?.find((p) => p.module === item.requiredModule);
+
+                // Fallback for old database records before the 17-module expansion
+                if (!perm) {
+                  const fallbackMap: Record<string, string> = {
+                    [ModuleName.STAFF]: "User",
+                    [ModuleName.ROLE]: "Role",
+                    [ModuleName.SALES]: "Order",
+                    [ModuleName.INVOICE]: "Order",
+                    [ModuleName.PURCHASE]: "Order",
+                    [ModuleName.INVENTORY]: "Product",
+                  };
+                  const oldName = fallbackMap[item.requiredModule];
+                  if (oldName) {
+                    perm = user.permissions?.find((p) => p.module === oldName);
+                  }
+                }
+
+                if (perm) {
+                  // If all accesses are explicitly false, or the module is manually hidden
+                  const hasZeroAccess =
+                    !perm.canRead && !perm.canCreate && !perm.canUpdate && !perm.canDelete;
+                  
+                  if (hasZeroAccess || !perm.isVisible) {
+                    return null; // Don't render this sidebar link
+                  }
+                }
+              }
+
               const isActive =
                 location.pathname === item.path ||
                 (item.path !== "/" && location.pathname.startsWith(item.path));

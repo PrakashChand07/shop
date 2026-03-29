@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Role = require('../models/Role');
 
 // Protect routes — verify JWT
 const protect = async (req, res, next) => {
@@ -21,26 +22,48 @@ const protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id)
-            .select('-password')
-            .populate('company', 'name email logo isActive currency invoicePrefix');
 
-        if (!user || !user.isActive) {
+        // Try User model first
+        let user = await User.findById(decoded.id)
+            .select('-password')
+            .populate('company', 'name email logo isActive currency invoicePrefix industryType');
+
+        if (user) {
+            if (!user.isActive) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'User account is deactivated.',
+                });
+            }
+            req.user = user;
+            req.user.companyId = user.company?._id || decoded.company;
+            return next();
+        }
+
+        // Try Role model (staff accounts)
+        const roleUser = await Role.findById(decoded.id)
+            .select('-password')
+            .populate('companyId', 'name email logo isActive currency invoicePrefix industryType');
+
+        if (!roleUser || !roleUser.isActive) {
             return res.status(401).json({
                 success: false,
                 message: 'User not found or account is deactivated.',
             });
         }
 
-        // Check if company is active (skip for superadmin)
-        if (user.role !== 'superadmin' && user.company && !user.company.isActive) {
-            return res.status(403).json({
-                success: false,
-                message: 'Your company account has been deactivated. Contact support.',
-            });
-        }
+        // Attach role user to req.user with compatible shape
+        req.user = {
+            _id: roleUser._id,
+            name: roleUser.roleName,
+            email: roleUser.email,
+            role: 'staff',
+            permissions: roleUser.permissions,
+            company: roleUser.companyId,
+            companyId: roleUser.companyId?._id,
+            isActive: roleUser.isActive,
+        };
 
-        req.user = user;
         next();
     } catch (error) {
         return res.status(401).json({

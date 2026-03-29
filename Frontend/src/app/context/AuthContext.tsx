@@ -1,11 +1,22 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "../api/axios";
 
+export interface IPermission {
+  module: string;
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  isVisible: boolean;
+}
+
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  department?: string;
+  permissions: IPermission[];
   company?: {
     id: string;
     _id: string;
@@ -65,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: response.data.data.name,
           email: response.data.data.email,
           role: response.data.data.role,
+          permissions: response.data.data.permissions || [],
+          department: response.data.data.department || "",
           company: response.data.data.company
         };
         setUser(userData);

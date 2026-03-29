@@ -1,48 +1,92 @@
 const User = require('../models/User');
+const Role = require('../models/Role');
+const bcrypt = require('bcryptjs');
 const generateToken = require('../utils/generateToken');
 
-// @desc    Login user
+// @desc    Login user (Admin/Staff from User model OR Role-based staff from Role model)
 // @route   POST /api/auth/login
 // @access  Public
 const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
+        // --- Try User model first (admin, superadmin, etc.) ---
         const user = await User.findOne({ email: email.toLowerCase() })
             .select('+password')
             .populate('company', 'name email phone address gstin panNumber logo signature seal currency invoicePrefix isActive plan industryType');
 
-        if (!user) {
+        if (user) {
+            if (!user.isActive) {
+                return res.status(401).json({ success: false, message: 'Your account has been deactivated.' });
+            }
+            if (user.role !== 'superadmin' && user.company && !user.company.isActive) {
+                return res.status(403).json({ success: false, message: 'Your company has been deactivated. Contact support.' });
+            }
+
+            const isMatch = await user.comparePassword(password);
+            if (!isMatch) {
+                return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+            }
+
+            const token = generateToken(user._id, user.company?._id || null);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Logged in successfully.',
+                data: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone,
+                    avatar: user.avatar,
+                    role: user.role,
+                    permissions: [],  // Admin has no permission restrictions
+                    company: user.company,
+                    token,
+                },
+            });
+        }
+
+        // --- Try Role model (staff accounts created by admin) ---
+        const roleAccount = await Role.findOne({ email: email.toLowerCase() })
+            .select('+password')
+            .populate('companyId', 'name email phone address gstin panNumber logo signature seal currency invoicePrefix isActive plan industryType');
+
+        if (!roleAccount) {
             return res.status(401).json({ success: false, message: 'Invalid email or password.' });
         }
-        if (!user.isActive) {
+
+        if (!roleAccount.isActive) {
             return res.status(401).json({ success: false, message: 'Your account has been deactivated.' });
         }
-        if (user.role !== 'superadmin' && user.company && !user.company.isActive) {
+
+        if (roleAccount.companyId && !roleAccount.companyId.isActive) {
             return res.status(403).json({ success: false, message: 'Your company has been deactivated. Contact support.' });
         }
 
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
+        const isRoleMatch = await bcrypt.compare(password, roleAccount.password);
+        if (!isRoleMatch) {
             return res.status(401).json({ success: false, message: 'Invalid email or password.' });
         }
 
-        const token = generateToken(user._id, user.company?._id || null);
+        // Use companyId._id as company for token generation
+        const token = generateToken(roleAccount._id, roleAccount.companyId?._id || null);
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Logged in successfully.',
             data: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                avatar: user.avatar,
-                role: user.role,
-                company: user.company,
+                _id: roleAccount._id,
+                name: roleAccount.roleName,
+                email: roleAccount.email,
+                role: 'staff',  // Assign fixed role for role-based accounts
+                permissions: roleAccount.permissions,
+                department: roleAccount.department,
+                company: roleAccount.companyId,
                 token,
             },
         });
+
     } catch (error) {
         next(error);
     }
@@ -53,6 +97,21 @@ const login = async (req, res, next) => {
 // @access  Private
 const getMe = async (req, res, next) => {
     try {
+        // If req.user.role === 'staff', it's a Role-based account (already populated by middleware)
+        if (req.user.role === 'staff') {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    _id: req.user._id,
+                    name: req.user.name,
+                    email: req.user.email,
+                    role: req.user.role,
+                    permissions: req.user.permissions,
+                    company: req.user.company,
+                }
+            });
+        }
+
         const user = await User.findById(req.user._id)
             .select('-password')
             .populate('company', 'name email phone address gstin panNumber logo signature seal currency invoicePrefix plan planExpiry isActive industryType');

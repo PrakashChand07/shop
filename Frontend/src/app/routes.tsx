@@ -24,6 +24,8 @@ import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { EWayBills } from "./pages/EWayBills";
 import { Staff } from "./pages/Staff";
+import { Roles } from "./pages/Roles";
+import { Permissions } from "./pages/Permissions";
 
 export const router = createBrowserRouter([
   {
@@ -53,6 +55,8 @@ export const router = createBrowserRouter([
       { path: "customers/:id", Component: CustomerDetails },
       { path: "suppliers", Component: Suppliers },
       { path: "staff", Component: Staff },
+      { path: "roles", Component: Roles },
+      { path: "permissions", Component: Permissions },
       { path: "accounting", Component: Accounting },
       { path: "gst-reports", Component: GSTReports },
       { path: "eway-bills", Component: EWayBills },

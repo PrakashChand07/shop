@@ -21,6 +21,8 @@ const superadminRoutes = require('./src/routes/superadmin.routes');
 const staffRoutes = require('./src/routes/staff.routes');
 const salaryRoutes = require('./src/routes/salary.routes');
 const accountingRoutes = require('./src/routes/accounting.routes');
+const roleRoutes = require('./src/routes/roleRoutes');
+const usersRoutes = require('./src/routes/users.routes');
 
 // Connect to MongoDB
 connectDB();
@@ -30,7 +32,19 @@ const app = express();
 // ── MIDDLEWARE ───────────────────────────────────────────
 
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        // Allow requests with no origin (Postman, mobile apps)
+        if (!origin) return callback(null, true);
+        // Allow any localhost port in development
+        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+            return callback(null, true);
+        }
+        // Allow configured CLIENT_URL in production
+        if (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) {
+            return callback(null, true);
+        }
+        callback(new Error(`CORS blocked: ${origin}`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -59,6 +73,8 @@ app.use('/api/superadmin', superadminRoutes); // Postman only
 app.use('/api/staff', staffRoutes);
 app.use('/api/salary', salaryRoutes);
 app.use('/api/accounting', accountingRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/users', usersRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
