@@ -30,9 +30,9 @@ exports.createRole = async (req, res) => {
       return res.status(400).json({ success: false, message: "Company not found for this user." });
     }
 
-    const existingRole = await Role.findOne({ email: email.toLowerCase() });
+    const existingRole = await Role.findOne({ email: email.toLowerCase(), companyId });
     if (existingRole) {
-      return res.status(400).json({ success: false, message: "Email already in use." });
+      return res.status(400).json({ success: false, message: "Email already in use in this company." });
     }
 
     const salt = await bcrypt.genSalt(10);

@@ -3,11 +3,11 @@ const { Schema } = mongoose;
 
 const RoleSchema = new Schema(
   {
-    companyId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: "Company",
-    },
+    companyId:{
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Company',
+                required: [true, 'Company is required'],
+            },
     roleName: {
       type: String,
       required: true,
@@ -15,7 +15,6 @@ const RoleSchema = new Schema(
     email: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -51,5 +50,8 @@ const RoleSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Indexes
+RoleSchema.index({ companyId: 1, email: 1 }, { unique: true });
 
 module.exports = mongoose.model("Role", RoleSchema);

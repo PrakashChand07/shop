@@ -10,7 +10,7 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { ActionButton } from "@/app/components/common/ActionButton";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus, Eye, EyeOff } from "lucide-react";
 import { IRole, IRoleFormData, roleSchema } from "../types";
 import { fetchDepartmentsApi } from "../api";
 
@@ -52,6 +52,7 @@ export function EditRoleDialog({
   const [deptInput, setDeptInput] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (role) {
@@ -135,14 +136,23 @@ export function EditRoleDialog({
           {/* Password */}
           <div className="space-y-2">
             <Label htmlFor="edit-password">
-              New Password{" "}
-              <span className="text-xs text-gray-400">(leave empty to keep current)</span>
+              New Password
+              <span className="text-xs text-gray-400"> (leave empty to keep current)</span>
             </Label>
             <Input
               id="edit-password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="••••••"
               {...register("password")}
+              suffix={
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
             />
           </div>
 

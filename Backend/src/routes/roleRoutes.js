@@ -18,13 +18,13 @@ router.use(protect);
 // ── Static routes first (before /:id param routes) ───────────────────────────
 router.get("/departments", getDepartments);
 router.get("/department-default/:department", getDeptDefault);
-router.put("/department-default/:department", checkPermission("Role", "canUpdate"), upsertDeptDefault);
+router.put("/department-default/:department", checkPermission("Role & Permission", "canUpdate"), upsertDeptDefault);
 
 // ── Role CRUD ─────────────────────────────────────────────────────────────────
-router.post("/", checkPermission("Role", "canCreate"), createRole);
-router.get("/", checkPermission("Role", "canRead"), getRoles);
-router.put("/:id", checkPermission("Role", "canUpdate"), updateRole);
-router.patch("/:id/permissions", checkPermission("Role", "canUpdate"), updatePermissions);
-router.delete("/:id", checkPermission("Role", "canDelete"), deleteRole);
+router.post("/", checkPermission("Role & Permission", "canCreate"), createRole);
+router.get("/", checkPermission("Role & Permission", "canRead"), getRoles);
+router.put("/:id", checkPermission("Role & Permission", "canUpdate"), updateRole);
+router.patch("/:id/permissions", checkPermission("Role & Permission", "canUpdate"), updatePermissions);
+router.delete("/:id", checkPermission("Role & Permission", "canDelete"), deleteRole);
 
 module.exports = router;

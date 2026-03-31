@@ -10,7 +10,7 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { ActionButton } from "@/app/components/common/ActionButton";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus, Eye, EyeOff } from "lucide-react";
 import { IRoleFormData, roleSchema } from "../types";
 import { fetchDepartmentsApi } from "../api";
 
@@ -50,6 +50,7 @@ export function CreateRoleDialog({
   const [deptInput, setDeptInput] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Load departments when dialog opens
   useEffect(() => {
@@ -141,10 +142,19 @@ export function CreateRoleDialog({
             </Label>
             <Input
               id="create-password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Minimum 6 characters"
               {...register("password")}
               error={errors.password?.message}
+              suffix={
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              }
             />
           </div>
 
